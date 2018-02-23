@@ -20,6 +20,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/Format.h"
 #include "FrameTimer.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Government.h"
 #include "HailPanel.h"
 #include "LineShader.h"
@@ -47,6 +48,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <string>
 
 using namespace std;
+using namespace Gettext;
 
 
 
@@ -212,7 +214,7 @@ bool MainPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command, boo
 	else if(command.Has(Command::AMMO))
 	{
 		Preferences::ToggleAmmoUsage();
-		Messages::Add("Your escorts will now expend ammo: " + Preferences::AmmoUsage() + ".");
+		Messages::Add(Format::StringF(T("Your escorts will now expend ammo: %1%."), Preferences::AmmoUsage()));
 	}
 	else if((key == SDLK_MINUS || key == SDLK_KP_MINUS) && !command)
 		Preferences::ZoomViewOut();
@@ -320,69 +322,56 @@ void MainPanel::ShowScanDialog(const ShipEvent &event)
 			if(it.second)
 			{
 				if(first)
-					out << "This " + target->Noun() + " is carrying:\n";
+					out << Format::StringF(T("This %1% is carrying:\n", "cargo"), target->Noun());
 				first = false;
-		
-				out << "\t" << it.second
-					<< (it.second == 1 ? " ton of " : " tons of ")
-					<< it.first << "\n";
+
+				out << Format::StringF(nT("\t%1% ton of %2%\n", "\t%1% tons of %2%\n", "cargo", it.second),
+					to_string(it.second), GameData::DisplayNameOfCommodity(it.first));
 			}
 		for(const auto &it : target->Cargo().Outfits())
 			if(it.second)
 			{
 				if(first)
-					out << "This " + target->Noun() + " is carrying:\n";
+					out << Format::StringF(T("This %1% is carrying:\n", "cargo outfit"), target->Noun());
 				first = false;
-		
-				out << "\t" << it.second;
+				
 				if(it.first->Get("installable") < 0.)
 				{
 					int tons = ceil(it.second * it.first->Mass());
-					out << (tons == 1 ? " ton of " : " tons of ") << Format::LowerCase(it.first->PluralName()) << "\n";
+					out << Format::StringF(nT("\t%1% ton of %2%\n", "\t%1% tons of %2%\n", "cargo outfit", tons),
+						to_string(tons), it.first->PluralName());
 				}
 				else
-					out << " " << (it.second == 1 ? it.first->Name(): it.first->PluralName()) << "\n";
+				{
+					int n = it.second;
+					out << Format::StringF(T("\t%1% %2%\n", "cargo outfit"), to_string(n), it.first->Name(n));
+				}
 			}
 		if(first)
-			out << "This " + target->Noun() + " is not carrying any cargo.\n";
+			out << Format::StringF(T("This %1% is not carrying any cargo.\n"), target->Noun());
 	}
 	if((event.Type() & ShipEvent::SCAN_OUTFITS) && target->Attributes().Get("inscrutable"))
-		out << "Your scanners cannot make any sense of this " + target->Noun() + "'s interior.";
+		out << Format::StringF(T("Your scanners cannot make any sense of this %1%'s interior."),
+			target->Noun());
 	else if(event.Type() & ShipEvent::SCAN_OUTFITS)
 	{
-		out << "This " + target->Noun() + " is equipped with:\n";
+		out << Format::StringF(T("This %1% is equipped with:\n", "outfit"), target->Noun());
 		for(const auto &it : target->Outfits())
 			if(it.first && it.second)
-				out << "\t" << it.second << " "
-					<< (it.second == 1 ? it.first->Name() : it.first->PluralName()) << "\n";
+				out << Format::StringF(T("\t%1% %2%\n", "outfit"),
+					to_string(it.second), it.first->Name(it.second));
 		
 		map<string, int> count;
 		for(const Ship::Bay &bay : target->Bays())
 			if(bay.ship)
-			{
-				int &value = count[bay.ship->ModelName()];
-				if(value)
-				{
-					// If the name and the plural name are the same string, just
-					// update the count. Otherwise, clear the count for the
-					// singular name and set it for the plural.
-					int &pluralValue = count[bay.ship->PluralModelName()];
-					if(!pluralValue)
-					{
-						value = -1;
-						pluralValue = 1;
-					}
-					++pluralValue;
-				}
-				else
-					++value;
-			}
+				++count[bay.ship->ModelTrueName()];
 		if(!count.empty())
 		{
-			out << "This " + target->Noun() + " is carrying:\n";
+			out << Format::StringF(T("This %1% is carrying:\n", "bay"), target->Noun());
 			for(const auto &it : count)
 				if(it.second > 0)
-					out << "\t" << it.second << " " << it.first << "\n";
+					out << Format::StringF(T("\t%1% %2%\n", "bay"), to_string(it.second),
+						GameData::Ships().Get(it.first)->ModelName(it.second));
 		}
 	}
 	GetUI()->Push(new Dialog(out.str()));
@@ -406,9 +395,9 @@ bool MainPanel::ShowHailPanel()
 		target.reset();
 	
 	if(flagship->IsEnteringHyperspace())
-		Messages::Add("Unable to send hail: your flagship is entering hyperspace.");
+		Messages::Add(T("Unable to send hail: your flagship is entering hyperspace."));
 	else if(flagship->Cloaking() == 1.)
-		Messages::Add("Unable to send hail: your flagship is cloaked.");
+		Messages::Add(T("Unable to send hail: your flagship is cloaked."));
 	else if(target)
 	{
 		// If the target is out of system, always report a generic response
@@ -416,9 +405,9 @@ bool MainPanel::ShowHailPanel()
 		// not. If it's in system and jumping, report that.
 		if(target->Zoom() < 1. || target->IsDestroyed() || target->GetSystem() != player.GetSystem()
 				|| target->Cloaking() == 1.)
-			Messages::Add("Unable to hail target " + target->Noun() + ".");
+			Messages::Add(Format::StringF(T("Unable to hail target %1%."), target->Noun()));
 		else if(target->IsEnteringHyperspace())
-			Messages::Add("Unable to send hail: " + target->Noun() + " is entering hyperspace.");
+			Messages::Add(Format::StringF(T("Unable to send hail: %1% is entering hyperspace."), target->Noun()));
 		else
 		{
 			GetUI()->Push(new HailPanel(player, target));
@@ -429,7 +418,7 @@ bool MainPanel::ShowHailPanel()
 	{
 		const Planet *planet = flagship->GetTargetStellar()->GetPlanet();
 		if(!planet)
-			Messages::Add("Unable to send hail.");
+			Messages::Add(T("Unable to send hail."));
 		else if(planet->IsWormhole())
 		{
 			static const Phrase *wormholeHail = GameData::Phrases().Get("wormhole hail");
@@ -441,10 +430,10 @@ bool MainPanel::ShowHailPanel()
 			return true;
 		}
 		else
-			Messages::Add("Unable to send hail: " + planet->Noun() + " is not inhabited.");
+			Messages::Add(Format::StringF(T("Unable to send hail: %1% is not inhabited."), planet->Noun()));
 	}
 	else
-		Messages::Add("Unable to send hail: no target selected.");
+		Messages::Add(T("Unable to send hail: no target selected."));
 	
 	return false;
 }

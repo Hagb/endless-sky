@@ -25,6 +25,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <sstream>
 
 using namespace std;
+using namespace Gettext;
 
 
 
@@ -46,7 +47,10 @@ void StartConditions::Load(const DataNode &node)
 		else if(child.Token(0) == "name" && child.Size() >= 2)
 			name = child.Token(1);
 		else if(child.Token(0) == "description" && child.Size() >= 2)
-			description += child.Token(1) + "\n";
+		{
+			description.push_back(T_(child.Token(1)));
+			description.push_back(T_("\n", "paragraph separator of start condition"));
+		}
 		else if(child.Token(0) == "thumbnail" && child.Size() >= 2)
 			thumbnail = SpriteSet::Get(child.Token(1));
 		else if(child.Token(0) == "ship" && child.Size() >= 2)
@@ -70,7 +74,7 @@ void StartConditions::Load(const DataNode &node)
 			conditions.Add(child);
 	}
 	if(description.empty())
-		description = "(No description provided.)";
+		description.push_back(T_("(No description provided.)"));
 	
 	// If no identifier is supplied, the creator would like this starting scenario to be isolated from
 	// other plugins. Thus, use an unguessable, non-reproducible identifier, this item's memory address.
@@ -149,14 +153,14 @@ const Sprite *StartConditions::GetThumbnail() const noexcept
 
 
 
-const std::string &StartConditions::GetDisplayName() const noexcept
+string StartConditions::GetDisplayName() const noexcept
 {
-	return name;
+	return T(name, "start");
 }
 
 
 
-const std::string &StartConditions::GetDescription() const noexcept
+string StartConditions::GetDescription() const noexcept
 {
-	return description;
+	return Concat(description);
 }

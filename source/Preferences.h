@@ -47,10 +47,19 @@ public:
 	static bool ZoomViewIn();
 	static bool ZoomViewOut();
 	
+
 	// VSync setting, either "on", "off", or "adaptive".
 	static bool ToggleVSync();
 	static Preferences::VSync VSyncState();
 	static const std::string &VSyncSetting();
+
+	// Languages.
+	static void ToggleLanguage();
+	static std::string GetLanguageName();
+	
+	// Fullname formats.
+	static void ToggleFullnameFormat();
+	static std::string GetFullnameFormat();
 };
 
 

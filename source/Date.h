@@ -66,6 +66,9 @@ private:
 	// Cached values of complex operations.
 	mutable int daysSinceEpoch = 0;
 	mutable std::string str;
+	
+	// When caching str.
+	mutable int epoch = 0;
 };
 
 

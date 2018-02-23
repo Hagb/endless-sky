@@ -20,6 +20,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/FontSet.h"
 #include "text/Format.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Government.h"
 #include "OutlineShader.h"
 #include "Planet.h"
@@ -39,8 +40,10 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <SDL2/SDL.h>
 
 #include <algorithm>
+#include <map>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	const string SHIP_OUTLINES = "Ship outlines in shops";
@@ -184,9 +187,9 @@ void ShopPanel::DrawShipsSidebar()
 		*GameData::Colors().Get("shop side panel background"));
 	
 	// Draw this string, centered in the side panel:
-	static const string YOURS = "Your Ships:";
+	static const T_ YOURS = T_("Your Ships:");
 	Point yoursPoint(Screen::Right() - SIDEBAR_WIDTH, Screen::Top() + 10 - sidebarScroll);
-	font.Draw({YOURS, {SIDEBAR_WIDTH, Alignment::CENTER}}, yoursPoint, bright);
+	font.Draw({YOURS.Str(), {SIDEBAR_WIDTH, Alignment::CENTER}}, yoursPoint, bright);
 	
 	// Start below the "Your Ships" label, and draw them.
 	Point point(
@@ -275,7 +278,7 @@ void ShopPanel::DrawShipsSidebar()
 	else if(player.Cargo().Size())
 	{
 		point.X() = Screen::Right() - SIDEBAR_WIDTH + 10;
-		font.Draw("cargo space:", point, medium);
+		font.Draw(T("cargo space:"), point, medium);
 		
 		string space = Format::Number(player.Cargo().Free()) + " / " + Format::Number(player.Cargo().Size());
 		font.Draw({space, {SIDEBAR_WIDTH - 20, Alignment::RIGHT}}, point, bright);
@@ -338,9 +341,9 @@ void ShopPanel::DrawButtons()
 	const Point creditsPoint(
 		Screen::Right() - SIDEBAR_WIDTH + 10,
 		Screen::Bottom() - 65);
-	font.Draw("You have:", creditsPoint, dim);
+	font.Draw(T("You have:"), creditsPoint, dim);
 	
-	const auto credits = Format::Credits(player.Accounts().Credits()) + " credits";
+	const auto credits = Format::Credits(player.Accounts().Credits()) + T(" credits", "ShopPanel");
 	font.Draw({credits, {SIDEBAR_WIDTH - 20, Alignment::RIGHT}}, creditsPoint, bright);
 	
 	const Font &bigFont = FontSet::Get(18);
@@ -350,23 +353,23 @@ void ShopPanel::DrawButtons()
 	
 	const Point buyCenter = Screen::BottomRight() - Point(210, 25);
 	FillShader::Fill(buyCenter, Point(60, 30), back);
-	string BUY = IsAlreadyOwned() ? (playerShip ? "_Install" : "_Cargo") : "_Buy";
+	string BUY = IsAlreadyOwned() ? (playerShip ? T("_Install") : T("_Cargo")) : T("_Buy");
 	bigFont.Draw(BUY,
 		buyCenter - .5 * Point(bigFont.Width(BUY), bigFont.Height()),
 		CanBuy() ? hoverButton == 'b' ? hover : active : inactive);
 	
 	const Point sellCenter = Screen::BottomRight() - Point(130, 25);
 	FillShader::Fill(sellCenter, Point(60, 30), back);
-	static const string SELL = "_Sell";
-	bigFont.Draw(SELL,
-		sellCenter - .5 * Point(bigFont.Width(SELL), bigFont.Height()),
+	static const T_ SELL = T_("_Sell");
+	bigFont.Draw(SELL.Str(),
+		sellCenter - .5 * Point(bigFont.Width(SELL.Str()), bigFont.Height()),
 		CanSell() ? hoverButton == 's' ? hover : active : inactive);
 	
 	const Point leaveCenter = Screen::BottomRight() - Point(45, 25);
 	FillShader::Fill(leaveCenter, Point(70, 30), back);
-	static const string LEAVE = "_Leave";
-	bigFont.Draw(LEAVE,
-		leaveCenter - .5 * Point(bigFont.Width(LEAVE), bigFont.Height()),
+	static const T_ LEAVE = T_("_Leave");
+	bigFont.Draw(LEAVE.Str(),
+		leaveCenter - .5 * Point(bigFont.Width(LEAVE.Str()), bigFont.Height()),
 		hoverButton == 'l' ? hover : active);
 	
 	int modifier = Modifier();
@@ -424,10 +427,17 @@ void ShopPanel::DrawMain()
 		point.Y() += bigFont.Height() + 20;
 		nextY += bigFont.Height() + 20;
 		
+		// Translators may control order of items.
+		// The translated keys may not be unique.
+		multimap<string, string> sortedNames;
+		for(const auto &itemName : it->second)
+			sortedNames.emplace(T(itemName, "sort key"), itemName);
+		
 		bool isCollapsed = collapsed.count(category);
 		bool isEmpty = true;
-		for(const string &name : it->second)
+		for(const auto &sortedName : sortedNames)
 		{
+			const string &name = sortedName.second;
 			bool isSelected = (selectedShip && GameData::Ships().Get(name) == selectedShip)
 				|| (selectedOutfit && GameData::Outfits().Get(name) == selectedOutfit);
 			
@@ -457,7 +467,7 @@ void ShopPanel::DrawMain()
 			Point size(bigFont.Width(category) + 25., bigFont.Height());
 			categoryZones.emplace_back(Point(Screen::Left(), side.Y()) + .5 * size, size, category);
 			SpriteShader::Draw(isCollapsed ? collapsedArrow : expandedArrow, side + Point(10., 10.));
-			bigFont.Draw(category, side + Point(25., 0.), isCollapsed ? dim : bright);
+			bigFont.Draw(T(category), side + Point(25., 0.), isCollapsed ? dim : bright);
 			
 			if(point.X() != begin.X())
 			{

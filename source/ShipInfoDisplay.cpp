@@ -19,6 +19,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/Format.h"
 #include "GameData.h"
 #include "text/layout.hpp"
+#include "text/Gettext.h"
 #include "Outfit.h"
 #include "Ship.h"
 #include "text/Table.h"
@@ -28,6 +29,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <sstream>
 
 using namespace std;
+using namespace Gettext;
 
 
 
@@ -82,13 +84,13 @@ void ShipInfoDisplay::DrawAttributes(const Point &topLeft) const
 	table.DrawGap(10.);
 	
 	table.Advance();
-	table.Draw("energy", labelColor);
-	table.Draw("heat", labelColor);
+	table.Draw(T("energy"), labelColor);
+	table.Draw(T("heat"), labelColor);
 	
 	for(unsigned i = 0; i < tableLabels.size(); ++i)
 	{
 		CheckHover(table, tableLabels[i]);
-		table.Draw(tableLabels[i], labelColor);
+		table.Draw(T(tableLabels[i], "Label of Attribute"), labelColor);
 		table.Draw(energyTable[i], valueColor);
 		table.Draw(heatTable[i], valueColor);
 	}
@@ -129,9 +131,10 @@ void ShipInfoDisplay::UpdateAttributes(const Ship &ship, const Depreciation &dep
 		attributeLabels.push_back("cost:");
 	else
 	{
-		ostringstream out;
-		out << "cost (" << (100 * depreciated) / fullCost << "%):";
-		attributeLabels.push_back(out.str());
+		// Special case: Non fixed texts are translated here and replaced their
+		// tooltip keys in GameData::Tooltip().
+		const string costPersent = Format::StringF(T("cost (%1%%):"), to_string((100 * depreciated) / fullCost));
+		attributeLabels.push_back(costPersent);
 	}
 	attributeValues.push_back(Format::Credits(depreciated));
 	attributesHeight += 20;
@@ -362,12 +365,12 @@ void ShipInfoDisplay::UpdateOutfits(const Ship &ship, const Depreciation &deprec
 	
 	
 	int64_t totalCost = depreciation.Value(ship, day);
-	int64_t chassisCost = depreciation.Value(GameData::Ships().Get(ship.ModelName()), day);
+	int64_t chassisCost = depreciation.Value(GameData::Ships().Get(ship.ModelTrueName()), day);
 	saleLabels.clear();
 	saleValues.clear();
 	saleHeight = 20;
 	
-	saleLabels.push_back("This ship will sell for:");
+	saleLabels.push_back(T("This ship will sell for:"));
 	saleValues.push_back(string());
 	saleHeight += 20;
 	saleLabels.push_back("empty hull:");

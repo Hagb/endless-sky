@@ -15,9 +15,53 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "DataNode.h"
 #include "text/Format.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Random.h"
 
+#include <set>
+
 using namespace std;
+using namespace Gettext;
+
+namespace {
+	// List of all instances of the class Phrase.
+	set<Phrase*> &GetListOfPhrases()
+	{
+		static set<Phrase*> *listOfPhrases(new set<Phrase*>);
+		return *listOfPhrases;
+	}
+	
+	// The Hook of translation.
+	function<void()> updateCatalog([](){
+		for(auto it : GetListOfPhrases())
+			it->UpdateTranslation();
+	});
+	// Set the hook.
+	volatile bool hooked = AddHookUpdating(&updateCatalog);
+}
+
+
+
+Phrase::Phrase()
+	: name(), sentences(), originalNodes()
+{
+	GetListOfPhrases().insert(this);
+}
+
+
+
+Phrase::Phrase(const Phrase &a)
+	: name(a.name), sentences(a.sentences), originalNodes(a.originalNodes)
+{
+	GetListOfPhrases().insert(this);
+}
+
+
+
+Phrase::~Phrase() noexcept
+{
+	GetListOfPhrases().erase(this);
+}
 
 
 
@@ -33,6 +77,34 @@ void Phrase::Load(const DataNode &node)
 		return;
 	}
 	
+	// Save the original node and we can switch it to other languages.
+	if(IsTranslating())
+	{
+		originalNodes.translatable.emplace_back(node);
+		ParseNode(TranslateNode(node));
+	}
+	else
+	{
+		originalNodes.dontTranslate.emplace_back(node);
+		ParseNode(node);
+	}
+}
+
+
+
+void Phrase::UpdateTranslation()
+{
+	sentences.clear();
+	for(const auto &node : originalNodes.translatable)
+		ParseNode(TranslateNode(node));
+	for(const auto &node : originalNodes.dontTranslate)
+		ParseNode(node);
+}
+
+
+
+void Phrase::ParseNode(const DataNode &node)
+{
 	sentences.emplace_back(node, this);
 	if(sentences.back().empty())
 	{

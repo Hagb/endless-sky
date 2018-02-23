@@ -16,6 +16,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Panel.h"
 
 #include "text/DisplayText.h"
+#include "text/Gettext.h"
 #include "Point.h"
 #include "text/truncate.hpp"
 
@@ -62,7 +63,7 @@ template <class T>
 	virtual void Draw() override;
 	
 	// Static method used to convert a DataNode into formatted Dialog text.
-	static void ParseTextNode(const DataNode &node, size_t startingIndex, std::string &text);
+	static void ParseTextNode(const DataNode &node, size_t startingIndex, std::vector<Gettext::T_> &text);
 	
 	
 protected:

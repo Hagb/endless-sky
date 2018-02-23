@@ -30,6 +30,11 @@ class System;
 // A unique individual who may appear at random times in the game.
 class Person {
 public:
+	Person() = default;
+	Person(const Person &a) = delete;
+	Person &operator=(const Person &a) = delete;
+	~Person() noexcept;
+	
 	void Load(const DataNode &node);
 	// Finish loading all the ships in this person specification.
 	void FinishLoading();
@@ -55,6 +60,9 @@ public:
 	// Mark this person as being no longer "placed" somewhere.
 	void ClearPlacement();
 	
+	// Update translated text.
+	void UpdateTranslation();
+	
 	
 private:
 	LocationFilter location;
@@ -64,6 +72,8 @@ private:
 	const Government *government = nullptr;
 	Personality personality;
 	Phrase hail;
+	
+	std::list<std::string> originalShipNames;
 };
 
 

@@ -37,7 +37,8 @@ DataWriter::DataWriter(const string &path)
 // Destructor, which saves the file all in one block.
 DataWriter::~DataWriter()
 {
-	Files::Write(path, out.str());
+	if(!path.empty())
+		Files::Write(path, out.str());
 }
 
 
@@ -111,9 +112,9 @@ void DataWriter::WriteToken(const char *a)
 	
 	// Write the token, enclosed in quotes if necessary.
 	out << *before;
-	if(hasSpace && hasQuote)
+	if(hasQuote)
 		out << '`' << a << '`';
-	else if(hasSpace)
+	else if(hasSpace || a[0] == '\0')
 		out << '"' << a << '"';
 	else
 		out << a;
@@ -129,4 +130,12 @@ void DataWriter::WriteToken(const char *a)
 void DataWriter::WriteToken(const string &a)
 {
 	WriteToken(a.c_str());
+}
+
+
+
+// Output a current data as a string.
+string DataWriter::GetString() const
+{
+	return out.str();
 }

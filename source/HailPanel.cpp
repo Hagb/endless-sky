@@ -19,6 +19,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/FontSet.h"
 #include "text/Format.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Government.h"
 #include "Information.h"
 #include "Interface.h"
@@ -37,6 +38,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <cmath>
 
 using namespace std;
+using namespace Gettext;
 
 
 
@@ -47,17 +49,18 @@ HailPanel::HailPanel(PlayerInfo &player, const shared_ptr<Ship> &ship)
 	
 	const Government *gov = ship->GetGovernment();
 	if(!ship->Name().empty())
-		header = gov->GetName() + " " + ship->Noun() + " \"" + ship->Name() + "\":";
+		header = Format::StringF(T("%1% %2% \"%3%\":", "HailPanel ship"),
+			gov->GetName(), ship->Noun(), ship->Name());
 	else
-		header = ship->ModelName() + " (" + gov->GetName() + "): ";
+		header = Format::StringF(T("%1% (%2%): ", "HailPanel"), ship->ModelName(), gov->GetName());
 	// Drones are always unpiloted, so they never respond to hails.
 	bool isMute = ship->GetPersonality().IsMute() || (ship->Attributes().Category() == "Drone");
 	hasLanguage = !isMute && (gov->Language().empty() || player.GetCondition("language: " + gov->Language()));
 	
 	if(isMute)
-		message = "(There is no response to your hail.)";
+		message = T("(There is no response to your hail.)");
 	else if(!hasLanguage)
-		message = "(An alien voice says something in a language you do not recognize.)";
+		message = T("(An alien voice says something in a language you do not recognize.)");
 	// Update default hail responses based on the hailed ship's government and status condition.
 	else if(gov->IsEnemy())
 	{
@@ -65,15 +68,15 @@ HailPanel::HailPanel(PlayerInfo &player, const shared_ptr<Ship> &ship)
 		{
 			SetBribe(gov->GetBribeFraction());
 			if(bribe)
-				message = "If you want us to leave you alone, it'll cost you "
-					+ Format::Credits(bribe) + " credits.";
+				message = Format::StringF(T("If you want us to leave you alone, it'll cost you %1% credits."),
+					Format::Credits(bribe));
 		}
 	}
 	else if(ship->IsDisabled())
 	{
 		const Ship *flagship = player.Flagship();
 		if(!flagship->JumpsRemaining() || flagship->IsDisabled())
-			message = "Sorry, we can't help you, because our ship is disabled.";
+			message = T("Sorry, we can't help you, because our ship is disabled.");
 	}
 	else
 	{
@@ -99,17 +102,17 @@ HailPanel::HailPanel(PlayerInfo &player, const shared_ptr<Ship> &ship)
 		}
 		
 		if(ship->GetShipToAssist() == player.FlagshipPtr())
-			message = "Hang on, we'll be there in a minute.";
+			message = T("Hang on, we'll be there in a minute.");
 		else if(canGiveFuel || canRepair)
 		{
-			message = "Looks like you've gotten yourself into a bit of trouble. "
-				"Would you like us to ";
+			const string msgF = T("Looks like you've gotten yourself into a bit of trouble. "
+				"Would you like us to %1%");
 			if(canGiveFuel && canRepair)
-				message += "patch you up and give you some fuel?";
+				message = Format::StringF(msgF, T("patch you up and give you some fuel?"));
 			else if(canGiveFuel)
-				message += "give you some fuel?";
+				message = Format::StringF(msgF, T("give you some fuel?"));
 			else if(canRepair)
-				message += "patch you up?";
+				message = Format::StringF(msgF, T("patch you up?"));
 		}
 	}
 	
@@ -126,11 +129,12 @@ HailPanel::HailPanel(PlayerInfo &player, const StellarObject *object)
 	
 	const Government *gov = planet ? planet->GetGovernment() : player.GetSystem()->GetGovernment();
 	if(planet)
-		header = gov->GetName() + " " + planet->Noun() + " \"" + planet->Name() + "\":";
+		header = Format::StringF(T("%1% %2% \"%3%\":", "HailPanel planet"),
+			gov->GetName(), planet->Noun(), planet->Name());
 	hasLanguage = (gov->Language().empty() || player.GetCondition("language: " + gov->Language()));
 	
 	if(!hasLanguage)
-		message = "(An alien voice says something in a language you do not recognize.)";
+		message = T("(An alien voice says something in a language you do not recognize.)");
 	else if(planet && player.Flagship())
 	{
 		for(const Mission &mission : player.Missions())
@@ -142,15 +146,15 @@ HailPanel::HailPanel(PlayerInfo &player, const StellarObject *object)
 				return;
 			}
 		if(planet->CanLand())
-			message = "You are cleared to land, " + player.Flagship()->Name() + ".";
+			message = Format::StringF(T("You are cleared to land, %1%."), player.Flagship()->Name());
 		else
 		{
 			SetBribe(planet->GetBribeFraction());
 			if(bribe)
-				message = "If you want to land here, it'll cost you "
-					+ Format::Credits(bribe) + " credits.";
+				message = Format::StringF(T("If you want to land here, it'll cost you %1% credits."),
+					Format::Credits(bribe));
 			else
-				message = "I'm afraid we can't permit you to land here.";
+				message = T("I'm afraid we can't permit you to land here.");
 		}
 	}
 }
@@ -235,8 +239,8 @@ bool HailPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command, boo
 		if(GameData::GetPolitics().HasDominated(planet))
 		{
 			GameData::GetPolitics().DominatePlanet(planet, false);
-			player.Conditions().erase("tribute: " + planet->Name());
-			message = "Thank you for granting us our freedom!";
+			player.Conditions().erase("tribute: " + planet->TrueName());
+			message = T("Thank you for granting us our freedom!");
 		}
 		else
 			message = planet->DemandTribute(player);
@@ -249,25 +253,25 @@ bool HailPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command, boo
 		if(playerNeedsHelp)
 		{
 			if(ship->CanBeCarried())
-				message = "Sorry, my ship is too small to have the right equipment to assist you.";
+				message = T("Sorry, my ship is too small to have the right equipment to assist you.");
 			else if(ship->GetPersonality().IsSurveillance())
-				message = "Sorry, I'm too busy to help you right now.";
+				message = T("Sorry, I'm too busy to help you right now.");
 			else if(canGiveFuel || canRepair)
 			{
 				ship->SetShipToAssist(player.FlagshipPtr());
-				message = "Hang on, we'll be there in a minute.";
+				message = T("Hang on, we'll be there in a minute.");
 			}
 			else if(ship->Fuel())
-				message = "Sorry, but if we give you fuel we won't have enough to make it to the next system.";
+				message = T("Sorry, but if we give you fuel we won't have enough to make it to the next system.");
 			else
-				message = "Sorry, we don't have any fuel.";
+				message = T("Sorry, we don't have any fuel.");
 		}
 		else
 		{
 			if(bribe)
-				message = "Yeah, right. Don't push your luck.";
+				message = T("Yeah, right. Don't push your luck.");
 			else
-				message = "You don't seem to be in need of repairs or fuel assistance.";
+				message = T("You don't seem to be in need of repairs or fuel assistance.");
 		}
 	}
 	else if((key == 'b' || key == 'o') && hasLanguage)
@@ -277,27 +281,28 @@ bool HailPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command, boo
 			return true;
 		
 		if(bribe > player.Accounts().Credits())
-			message = "Sorry, but you don't have enough money to be worth my while.";
+			message = T("Sorry, but you don't have enough money to be worth my while.");
 		else if(bribe)
 		{
 			if(ship)
 			{
 				ship->GetGovernment()->Bribe();
-				Messages::Add("You bribed a " + ship->GetGovernment()->GetName() + " ship "
-					+ Format::Credits(bribe) + " credits to refrain from attacking you today.");
+				Messages::Add(Format::StringF(T("You bribed a %1% ship %2% credits "
+					"to refrain from attacking you today."), ship->GetGovernment()->GetName(),
+					Format::Credits(bribe)));
 			}
 			else
 			{
 				planet->Bribe();
-				Messages::Add("You bribed the authorities on " + planet->Name() + " "
-					+ Format::Credits(bribe) + " credits to permit you to land.");
+				Messages::Add(Format::StringF(T("You bribed the authorities on %1% %2% credits "
+					"to permit you to land."), planet->Name(), Format::Credits(bribe)));
 			}
 			
 			player.Accounts().AddCredits(-bribe);
-			message = "It's a pleasure doing business with you.";
+			message = T("It's a pleasure doing business with you.");
 		}
 		else
-			message = "I do not want your money.";
+			message = T("I do not want your money.");
 	}
 	
 	return true;

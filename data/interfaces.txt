@@ -205,6 +205,8 @@ interface "menu player info"
 	string "playtime"
 		from 315 105
 		align left
+		width 165
+		truncate back
 
 
 
@@ -1153,3 +1155,11 @@ interface "hail panel"
 	button h "Ask For _Help"
 		center -20 115
 		dimensions 140 30
+
+
+
+language en
+	name "English"
+	"font description" "Ubuntu"
+	"line height scale" 1.20
+	"paragraph break scale" 0.40

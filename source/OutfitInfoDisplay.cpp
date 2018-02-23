@@ -14,6 +14,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include "Depreciation.h"
 #include "text/Format.h"
+#include "text/Gettext.h"
 #include "Outfit.h"
 #include "PlayerInfo.h"
 
@@ -24,6 +25,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <sstream>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	const vector<pair<double, string>> SCALE_LABELS = {
@@ -119,11 +121,11 @@ namespace {
 		{"depleted shield delay", 5}
 	};
 	
-	const map<string, string> BOOLEAN_ATTRIBUTES = {
-		{"unplunderable", "This outfit cannot be plundered."},
-		{"installable", "This is not an installable item."},
-		{"hyperdrive", "Allows you to make hyperjumps."},
-		{"jump drive", "Lets you jump to any nearby system."}
+	const map<string, T_> BOOLEAN_ATTRIBUTES = {
+		{"unplunderable", T_("This outfit cannot be plundered.")},
+		{"installable", T_("This is not an installable item.")},
+		{"hyperdrive", T_("Allows you to make hyperjumps.")},
+		{"jump drive", T_("Lets you jump to any nearby system.")}
 	};
 }
 
@@ -176,11 +178,9 @@ void OutfitInfoDisplay::UpdateRequirements(const Outfit &outfit, const PlayerInf
 	if(buyValue == cost)
 		requirementLabels.push_back("cost:");
 	else
-	{
-		ostringstream out;
-		out << "cost (" << (100 * buyValue) / cost << "%):";
-		requirementLabels.push_back(out.str());
-	}
+		// Special case: Non fixed texts are translated here and replaced their
+		// tooltip keys in GameData::Tooltip().
+		requirementLabels.push_back(Format::StringF(T("cost (%1%%):"), to_string((100 * buyValue) / cost)));
 	requirementValues.push_back(Format::Credits(buyValue));
 	requirementsHeight += 20;
 	
@@ -189,11 +189,9 @@ void OutfitInfoDisplay::UpdateRequirements(const Outfit &outfit, const PlayerInf
 		if(sellValue == cost)
 			requirementLabels.push_back("sells for:");
 		else
-		{
-			ostringstream out;
-			out << "sells for (" << (100 * sellValue) / cost << "%):";
-			requirementLabels.push_back(out.str());
-		}
+			// Special case: Non fixed texts are translated here and replaced their
+			// tooltip keys in GameData::Tooltip().
+			requirementLabels.push_back(Format::StringF(T("sells for (%1%%):"), to_string((100 * sellValue) / cost)));
 		requirementValues.push_back(Format::Credits(sellValue));
 		requirementsHeight += 20;
 	}
@@ -256,9 +254,9 @@ void OutfitInfoDisplay::UpdateAttributes(const Outfit &outfit)
 		string units = (sit == SCALE.end() ? "" : SCALE_LABELS[sit->second].second);
 		
 		auto bit = BOOLEAN_ATTRIBUTES.find(it.first);
-		if(bit != BOOLEAN_ATTRIBUTES.end()) 
+		if(bit != BOOLEAN_ATTRIBUTES.end())
 		{
-			attributeLabels.emplace_back(bit->second);
+			attributeLabels.emplace_back(bit->second.Str());
 			attributeValues.emplace_back(" ");
 			attributesHeight += 20;
 		}
@@ -374,7 +372,7 @@ void OutfitInfoDisplay::UpdateAttributes(const Outfit &outfit)
 	bool isContinuous = (reload <= 1);
 	attributeLabels.emplace_back("shots / second:");
 	if(isContinuous)
-		attributeValues.emplace_back("continuous");
+		attributeValues.emplace_back(T("continuous"));
 	else
 		attributeValues.emplace_back(Format::Number(60. / reload));
 	attributesHeight += 20;
@@ -389,15 +387,15 @@ void OutfitInfoDisplay::UpdateAttributes(const Outfit &outfit)
 	int homing = outfit.Homing();
 	if(homing)
 	{
-		static const string skill[] = {
-			"none",
-			"poor",
-			"fair",
-			"good",
-			"excellent"
+		static const T_ skill[] = {
+			T_("none", "homing skills"),
+			T_("poor", "homing skills"),
+			T_("fair", "homing skills"),
+			T_("good", "homing skills"),
+			T_("excellent", "homing skills")
 		};
 		attributeLabels.emplace_back("homing:");
-		attributeValues.push_back(skill[max(0, min(4, homing))]);
+		attributeValues.push_back(skill[max(0, min(4, homing))].Str());
 		attributesHeight += 20;
 	}
 	static const vector<string> PERCENT_NAMES = {

@@ -13,6 +13,8 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #ifndef MORTGAGE_H_
 #define MORTGAGE_H_
 
+#include "text/Gettext.h"
+
 #include <string>
 
 class DataNode;
@@ -56,6 +58,8 @@ public:
 	// The type is "Mortgage" if this is a mortgage you applied for from a bank,
 	// and "Fine" if this is a fine imposed on you for illegal activities.
 	const std::string &Type() const;
+	// The TypeName() is equivallent Type(), but this function can return that translated text.
+	const std::string &TypeName() const;
 	// Get the remaining mortgage principal.
 	int64_t Principal() const;
 	// Get the interest rate. It is formatted as a string, because all that the
@@ -69,7 +73,7 @@ public:
 	
 private:
 	// Note: once a mortgage is set up, only the principal and term will change.
-	std::string type;
+	Gettext::T_ type;
 	int64_t principal = 0;
 	double interest = 0.;
 	std::string interestString;

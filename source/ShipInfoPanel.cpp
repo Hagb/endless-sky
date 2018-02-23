@@ -21,6 +21,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/FontSet.h"
 #include "text/Format.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Information.h"
 #include "Interface.h"
 #include "LineShader.h"
@@ -41,6 +42,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <algorithm>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	constexpr double WIDTH = 250.;
@@ -148,7 +150,7 @@ bool ShipInfoPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command,
 		GetUI()->Push(new PlayerInfoPanel(player));
 	}
 	else if(key == 'R' || (key == 'r' && shift))
-		GetUI()->Push(new Dialog(this, &ShipInfoPanel::Rename, "Change this ship's name?",
+		GetUI()->Push(new Dialog(this, &ShipInfoPanel::Rename, T("Change this ship's name?"),
 			FontUtilities::Unescape((*shipIt)->Name())));
 	else if(canEdit && (key == 'P' || (key == 'p' && shift)))
 	{
@@ -158,9 +160,10 @@ bool ShipInfoPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command,
 	else if(canEdit && key == 'D')
 	{
 		if(shipIt->get() != player.Flagship())
-			GetUI()->Push(new Dialog(this, &ShipInfoPanel::Disown, "Are you sure you want to disown \""
-				+ shipIt->get()->Name()
-				+ "\"? Disowning a ship rather than selling it means you will not get any money for it."));
+			GetUI()->Push(new Dialog(this, &ShipInfoPanel::Disown,
+				Format::StringF(T("Are you sure you want to disown \"%1%\"? "
+				"Disowning a ship rather than selling it means you will not get any money for it."),
+				shipIt->get()->Name())));
 	}
 	else if(key == 'c' && CanDump())
 	{
@@ -170,35 +173,35 @@ bool ShipInfoPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command,
 		if(amount)
 		{
 			GetUI()->Push(new Dialog(this, &ShipInfoPanel::DumpCommodities,
-				"How many tons of " + Format::LowerCase(selectedCommodity)
-					+ " do you want to jettison?", amount));
+				Format::StringF(T("How many tons of %1% do you want to jettison?"),
+					Format::LowerCase(GameData::DisplayNameOfCommodity(selectedCommodity))), amount));
 		}
 		else if(plunderAmount > 0 && selectedPlunder->Get("installable") < 0.)
 		{
 			GetUI()->Push(new Dialog(this, &ShipInfoPanel::DumpPlunder,
-				"How many tons of " + Format::LowerCase(selectedPlunder->Name())
-					+ " do you want to jettison?", plunderAmount));
+				Format::StringF(T("How many tons of %1% do you want to jettison?"),
+					Format::LowerCase(selectedPlunder->Name())), plunderAmount));
 		}
 		else if(plunderAmount == 1)
 		{
 			GetUI()->Push(new Dialog(this, &ShipInfoPanel::Dump,
-				"Are you sure you want to jettison a " + selectedPlunder->Name() + "?"));
+				Format::StringF(T("Are you sure you want to jettison a %1%?"), selectedPlunder->Name())));
 		}
 		else if(plunderAmount > 1)
 		{
 			GetUI()->Push(new Dialog(this, &ShipInfoPanel::DumpPlunder,
-				"How many " + selectedPlunder->PluralName() + " do you want to jettison?",
+				Format::StringF(T("How many %1% do you want to jettison?"), selectedPlunder->PluralName()),
 				plunderAmount));
 		}
 		else if(commodities)
 		{
 			GetUI()->Push(new Dialog(this, &ShipInfoPanel::Dump,
-				"Are you sure you want to jettison all of this ship's regular cargo?"));
+				T("Are you sure you want to jettison all of this ship's regular cargo?")));
 		}
 		else
 		{
 			GetUI()->Push(new Dialog(this, &ShipInfoPanel::Dump,
-				"Are you sure you want to jettison all of this ship's cargo?"));
+				T("Are you sure you want to jettison all of this ship's cargo?")));
 		}
 	}
 	else if(command.Has(Command::MAP) || key == 'm')
@@ -311,8 +314,8 @@ void ShipInfoPanel::DrawShipStats(const Rectangle &bounds)
 	table.SetUnderline(0, COLUMN_WIDTH);
 	table.DrawAt(bounds.TopLeft() + Point(10., 8.));
 	
-	table.DrawTruncatedPair("ship:", dim, ship.Name(), bright, Truncate::MIDDLE, true);
-	table.DrawTruncatedPair("model:", dim, ship.ModelName(), bright, Truncate::MIDDLE, true);
+	table.DrawTruncatedPair(T("ship:"), dim, ship.Name(), bright, Truncate::MIDDLE, true);
+	table.DrawTruncatedPair(T("model:"), dim, ship.ModelName(), bright, Truncate::MIDDLE, true);
 	
 	info.DrawAttributes(table.GetRowBounds().TopLeft() - Point(10., 10.));
 }
@@ -356,7 +359,7 @@ void ShipInfoPanel::DrawOutfits(const Rectangle &bounds, Rectangle &cargoBounds)
 		}
 		
 		// Draw the category label.
-		table.Draw(category, bright);
+		table.Draw(T(category), bright);
 		table.Advance();
 		for(const Outfit *outfit : it->second)
 		{
@@ -367,7 +370,7 @@ void ShipInfoPanel::DrawOutfits(const Rectangle &bounds, Rectangle &cargoBounds)
 				if(start.X() + COLUMN_WIDTH > bounds.Right())
 					break;
 				table.DrawAt(start);
-				table.Draw(category, bright);
+				table.Draw(T(category), bright);
 				table.Advance();
 			}
 			
@@ -454,7 +457,7 @@ void ShipInfoPanel::DrawWeapons(const Rectangle &bounds)
 	auto layout = Layout(static_cast<int>(LABEL_WIDTH), Truncate::BACK);
 	for(const Hardpoint &hardpoint : ship.Weapons())
 	{
-		string name = "[empty]";
+		string name = T("[empty]");
 		if(hardpoint.GetOutfit())
 			name = hardpoint.GetOutfit()->Name();
 		
@@ -498,7 +501,7 @@ void ShipInfoPanel::DrawWeapons(const Rectangle &bounds)
 	if(draggingIndex >= 0)
 	{
 		const Outfit *outfit = ship.Weapons()[draggingIndex].GetOutfit();
-		string name = outfit ? outfit->Name() : "[empty]";
+		string name = outfit ? outfit->Name() : T("[empty]");
 		Point pos(hoverPoint.X() - .5 * font.Width(name), hoverPoint.Y());
 		font.Draw(name, pos + Point(1., 1.), Color(0., 1.));
 		font.Draw(name, pos, bright);
@@ -526,7 +529,7 @@ void ShipInfoPanel::DrawCargo(const Rectangle &bounds)
 	bool hasSpace = (table.GetRowBounds().Bottom() < endY);
 	if((cargo.CommoditiesSize() || cargo.HasOutfits() || cargo.MissionCargoSize()) && hasSpace)
 	{
-		table.Draw("Cargo", bright);
+		table.Draw(T("Cargo"), bright);
 		table.Advance();
 		hasSpace = (table.GetRowBounds().Bottom() < endY);
 	}
@@ -541,7 +544,7 @@ void ShipInfoPanel::DrawCargo(const Rectangle &bounds)
 			if(it.first == selectedCommodity)
 				table.DrawHighlight(backColor);
 			
-			table.Draw(it.first, dim);
+			table.Draw(GameData::DisplayNameOfCommodity(it.first), dim);
 			table.Draw(to_string(it.second), bright);
 			
 			// Truncate the list if there is not enough space.
@@ -566,7 +569,7 @@ void ShipInfoPanel::DrawCargo(const Rectangle &bounds)
 			
 			// For outfits, show how many of them you have and their total mass.
 			bool isSingular = (it.second == 1 || it.first->Get("installable") < 0.);
-			string name = (isSingular ? it.first->Name() : it.first->PluralName());
+			string name = (isSingular ? it.first->Name() : it.first->Name(it.second));
 			if(!isSingular)
 				name += " (" + to_string(it.second) + "x)";
 			table.Draw(name, dim);
@@ -600,7 +603,7 @@ void ShipInfoPanel::DrawCargo(const Rectangle &bounds)
 	if(cargo.Passengers() && endY >= bounds.Top())
 	{
 		table.DrawAt(Point(bounds.Left(), endY) + Point(10., 8.));
-		table.Draw("passengers:", dim);
+		table.Draw(T("passengers:"), dim);
 		table.Draw(to_string(cargo.Passengers()), bright);
 	}
 }
@@ -709,7 +712,7 @@ void ShipInfoPanel::Dump()
 	
 	info.Update(**shipIt, player.FleetDepreciation(), player.GetDate().DaysSinceEpoch());
 	if(loss)
-		Messages::Add("You jettisoned " + Format::Credits(loss) + " credits worth of cargo.");
+		Messages::Add(Format::StringF(T("You jettisoned %1% credits worth of cargo."), Format::Credits(loss)));
 }
 
 
@@ -725,7 +728,7 @@ void ShipInfoPanel::DumpPlunder(int count)
 		info.Update(**shipIt, player.FleetDepreciation(), player.GetDate().DaysSinceEpoch());
 		
 		if(loss)
-			Messages::Add("You jettisoned " + Format::Credits(loss) + " credits worth of cargo.");
+			Messages::Add(Format::StringF(T("You jettisoned %1% credits worth of cargo."), Format::Credits(loss)));
 	}
 }
 
@@ -744,7 +747,7 @@ void ShipInfoPanel::DumpCommodities(int count)
 		info.Update(**shipIt, player.FleetDepreciation(), player.GetDate().DaysSinceEpoch());
 		
 		if(loss)
-			Messages::Add("You jettisoned " + Format::Credits(loss) + " credits worth of cargo.");
+			Messages::Add(Format::StringF(T("You jettisoned %1% credits worth of cargo."), Format::Credits(loss)));
 	}
 }
 

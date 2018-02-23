@@ -19,6 +19,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Armament.h"
 #include "CargoHold.h"
 #include "Command.h"
+#include "text/Gettext.h"
 #include "Outfit.h"
 #include "Personality.h"
 #include "Point.h"
@@ -134,15 +135,20 @@ public:
 	const std::string &Name() const;
 	
 	// Set / Get the name of this model of ship.
+	// n is the number of ships.
 	void SetModelName(const std::string &model);
-	const std::string &ModelName() const;
-	const std::string &PluralModelName() const;
+	std::string ModelName(unsigned long n = 1) const;
+	std::string PluralModelName() const;
+	// Get the internal name used for this ship model. This name is unique and
+	// never modified by translation, so it can be used in condition
+	// variables, etc.
+	const std::string &ModelTrueName() const;
 	// Get the name of this ship as a variant.
-	const std::string &VariantName() const;
+	const std::string &VariantTrueName() const;
 	// Get the generic noun (e.g. "ship") to be used when describing this ship.
 	const std::string &Noun() const;
 	// Get this ship's description.
-	const std::string &Description() const;
+	std::string Description() const;
 	// Get the shipyard thumbnail for this ship.
 	const Sprite *Thumbnail() const;
 	// Get this ship's cost.
@@ -448,11 +454,11 @@ private:
 	std::string modelName;
 	std::string pluralModelName;
 	std::string variantName;
-	std::string noun;
-	std::string description;
+	Gettext::T_ noun;
+	std::vector<Gettext::T_> description;
 	const Sprite *thumbnail = nullptr;
 	// Characteristics of this particular ship:
-	std::string name;
+	Gettext::T_ name;
 	bool canBeCarried = false;
 	
 	int forget = 0;

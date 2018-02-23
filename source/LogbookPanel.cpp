@@ -18,7 +18,9 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "FillShader.h"
 #include "text/Font.h"
 #include "text/FontSet.h"
+#include "text/Format.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "text/layout.hpp"
 #include "PlayerInfo.h"
 #include "Preferences.h"
@@ -29,9 +31,11 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "UI.h"
 
 #include <algorithm>
+#include <map>
 #include <set>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	const double SIDEBAR_WIDTH = 100.;
@@ -44,9 +48,12 @@ namespace {
 	const double MINIMUM_SELECTION_DISTANCE = LINE_HEIGHT * 3;
 
 	const double GAP = 30.;
-	const string MONTH[] = {
-		"  January", "  February", "  March", "  April", "  May", "  June",
-		"  July", "  August", "  September", "  October", "  November", "  December"};
+	const T_ MONTH[] = {
+		T_("  January"), T_("  February"), T_("  March"), T_("  April"), T_("  May"), T_("  June"),
+		T_("  July"), T_("  August"), T_("  September"), T_("  October"), T_("  November"), T_("  December")
+	};
+	// TRANSLATORS: %1%: year.
+	const T_ yearFormat = T_("%1%");
 }
 
 
@@ -58,7 +65,7 @@ LogbookPanel::LogbookPanel(PlayerInfo &player)
 	if(!player.Logbook().empty())
 	{
 		selectedDate = (--player.Logbook().end())->first;
-		selectedName = MONTH[selectedDate.Month() - 1];
+		selectedName = MONTH[selectedDate.Month() - 1].Str();
 	}
 	Update();
 }
@@ -121,7 +128,10 @@ void LogbookPanel::Draw()
 			FillShader::Fill(pos + highlightOffset - Point(1., 0.), highlightSize + Point(0., 2.), lineColor);
 			FillShader::Fill(pos + highlightOffset, highlightSize, backColor);
 		}
-		font.Draw(contents[i], pos + textOffset, dates[i].Month() ? medium : bright);
+		if(dates[i])
+			font.Draw(contents[i], pos + textOffset, medium);
+		else
+			font.Draw(T(contents[i], "log"), pos + textOffset, bright);
 		pos.Y() += LINE_HEIGHT;
 	}
 
@@ -137,11 +147,11 @@ void LogbookPanel::Draw()
 	auto pit = player.SpecialLogs().find(selectedName);
 	if(selectedDate && begin != end)
 	{
-		const auto layout = Layout(static_cast<int>(TEXT_WIDTH - 2. * PAD), Alignment::RIGHT);
+		auto dateText = DisplayText("", {static_cast<int>(TEXT_WIDTH - 2. * PAD), Alignment::RIGHT});
 		for(auto it = begin; it != end; ++it)
 		{
-			string date = it->first.ToString();
-			font.Draw({date, layout}, pos + Point(0., textOffset.Y()), dim);
+			dateText.SetText(it->first.ToString());
+			font.Draw(dateText, pos + Point(0., textOffset.Y()), dim);
 			pos.Y() += LINE_HEIGHT;
 			
 			text.SetText(it->second);
@@ -151,11 +161,16 @@ void LogbookPanel::Draw()
 	}
 	else if(!selectedDate && pit != player.SpecialLogs().end())
 	{
+		// Translators may control order of log entries.
+		// The translated keys may not be unique.
+		multimap<string, pair<string, string>> sortedLog;
 		for(const auto &it : pit->second)
+			sortedLog.emplace(T(it.first, "sort key"), make_pair(T(it.first, "log"), it.second));
+		for(const auto &it : sortedLog)
 		{
-			font.Draw(it.first, pos + textOffset, bright);
+			font.Draw(it.second.first, pos + textOffset, bright);
 			pos.Y() += LINE_HEIGHT;
-			text.SetText(it.second);
+			text.SetText(it.second.second);
 			font.Draw(text, pos, medium);
 			pos.Y() += font.FormattedHeight(text) + GAP;
 		}
@@ -294,9 +309,14 @@ void LogbookPanel::Update(bool selectLast)
 {
 	contents.clear();
 	dates.clear();
+	// Translators may control order of special log entries.
+	// The translated keys may not be unique.
+	multimap<string, string> sortedSpecialLogs;
 	for(const auto &it : player.SpecialLogs())
+		sortedSpecialLogs.emplace(T(it.first, "sort key"), it.first);
+	for(const auto &it : sortedSpecialLogs)
 	{
-		contents.emplace_back(it.first);
+		contents.emplace_back(it.second);
 		dates.emplace_back();
 	}
 	// The logbook should never be opened if it has no entries, but just in case:
@@ -319,12 +339,12 @@ void LogbookPanel::Update(bool selectLast)
 	// Generate the table of contents.
 	for(int year : years)
 	{
-		contents.emplace_back(to_string(year));
+		contents.emplace_back(Format::StringF(yearFormat.Str(), to_string(year)));
 		dates.emplace_back(0, 0, year);
 		if(selectedDate && year == selectedDate.Year())
 			for(int month : months)
 			{
-				contents.emplace_back(MONTH[month - 1]);
+				contents.emplace_back(MONTH[month - 1].Str());
 				dates.emplace_back(0, month, year);
 			}
 	}
@@ -339,7 +359,7 @@ void LogbookPanel::Update(bool selectLast)
 	if(!selectedDate.Month())
 	{
 		selectedDate = Date(0, selectLast ? *--months.end() : *months.begin(), selectedDate.Year());
-		selectedName = MONTH[selectedDate.Month() - 1];
+		selectedName = MONTH[selectedDate.Month() - 1].Str();
 	}
 	// Get the range of entries that include the selected month.
 	begin = player.Logbook().lower_bound(Date(0, selectedDate.Month(), selectedDate.Year()));

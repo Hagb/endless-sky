@@ -16,6 +16,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "DataNode.h"
 #include "DataWriter.h"
 #include "text/Format.h"
+#include "text/Gettext.h"
 
 #include <SDL2/SDL.h>
 
@@ -24,6 +25,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <map>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	// These lookup tables make it possible to map a command to its description,
@@ -40,32 +42,32 @@ namespace {
 // Command enumeration, including the descriptive strings that are used for the
 // commands both in the preferences panel and in the saved key settings.
 const Command Command::NONE(0, "");
-const Command Command::MENU(1uL << 0, "Show main menu");
-const Command Command::FORWARD(1uL << 1, "Forward thrust");
-const Command Command::LEFT(1uL << 2, "Turn left");
-const Command Command::RIGHT(1uL << 3, "Turn right");
-const Command Command::BACK(1uL << 4, "Reverse");
-const Command Command::PRIMARY(1uL << 5, "Fire primary weapon");
-const Command Command::SECONDARY(1uL << 6, "Fire secondary weapon");
-const Command Command::SELECT(1uL << 7, "Select secondary weapon");
-const Command Command::LAND(1uL << 8, "Land on planet / station");
-const Command Command::BOARD(1uL << 9, "Board selected ship");
-const Command Command::HAIL(1uL << 10, "Talk to selected ship");
-const Command Command::SCAN(1uL << 11, "Scan selected ship");
-const Command Command::JUMP(1uL << 12, "Initiate hyperspace jump");
-const Command Command::TARGET(1uL << 13, "Select next ship");
-const Command Command::NEAREST(1uL << 14, "Select nearest hostile ship");
-const Command Command::DEPLOY(1uL << 15, "Deploy / recall fighters");
-const Command Command::AFTERBURNER(1uL << 16, "Fire afterburner");
-const Command Command::CLOAK(1uL << 17, "Toggle cloaking device");
-const Command Command::MAP(1uL << 18, "View star map");
-const Command Command::INFO(1uL << 19, "View player info");
-const Command Command::FULLSCREEN(1uL << 20, "Toggle fullscreen");
-const Command Command::FASTFORWARD(1uL << 21, "Toggle fast-forward");
-const Command Command::FIGHT(1uL << 22, "Fleet: Fight my target");
-const Command Command::GATHER(1uL << 23, "Fleet: Gather around me");
-const Command Command::HOLD(1uL << 24, "Fleet: Hold position");
-const Command Command::AMMO(1uL << 25, "Fleet: Toggle ammo usage");
+const Command Command::MENU(1uL << 0, G("Show main menu"));
+const Command Command::FORWARD(1uL << 1, G("Forward thrust"));
+const Command Command::LEFT(1uL << 2, G("Turn left"));
+const Command Command::RIGHT(1uL << 3, G("Turn right"));
+const Command Command::BACK(1uL << 4, G("Reverse"));
+const Command Command::PRIMARY(1uL << 5, G("Fire primary weapon"));
+const Command Command::SECONDARY(1uL << 6, G("Fire secondary weapon"));
+const Command Command::SELECT(1uL << 7, G("Select secondary weapon"));
+const Command Command::LAND(1uL << 8, G("Land on planet / station"));
+const Command Command::BOARD(1uL << 9, G("Board selected ship"));
+const Command Command::HAIL(1uL << 10, G("Talk to selected ship"));
+const Command Command::SCAN(1uL << 11, G("Scan selected ship"));
+const Command Command::JUMP(1uL << 12, G("Initiate hyperspace jump"));
+const Command Command::TARGET(1uL << 13, G("Select next ship"));
+const Command Command::NEAREST(1uL << 14, G("Select nearest hostile ship"));
+const Command Command::DEPLOY(1uL << 15, G("Deploy / recall fighters"));
+const Command Command::AFTERBURNER(1uL << 16, G("Fire afterburner"));
+const Command Command::CLOAK(1uL << 17, G("Toggle cloaking device"));
+const Command Command::MAP(1uL << 18, G("View star map"));
+const Command Command::INFO(1uL << 19, G("View player info"));
+const Command Command::FULLSCREEN(1uL << 20, G("Toggle fullscreen"));
+const Command Command::FASTFORWARD(1uL << 21, G("Toggle fast-forward"));
+const Command Command::FIGHT(1uL << 22, G("Fleet: Fight my target"));
+const Command Command::GATHER(1uL << 23, G("Fleet: Gather around me"));
+const Command Command::HOLD(1uL << 24, G("Fleet: Hold position"));
+const Command Command::AMMO(1uL << 25, G("Fleet: Toggle ammo usage"));
 const Command Command::WAIT(1uL << 26, "");
 const Command Command::STOP(1ul << 27, "");
 const Command Command::SHIFT(1uL << 28, "");
@@ -78,7 +80,8 @@ string Command::ReplaceNamesWithKeys(const string &text)
 {
 	map<string, string> subs;
 	for(const auto &it : description)
-		subs['<' + it.second + '>'] = '"' + keyName[it.first] + '"';
+		subs['<' + it.second + '>'] = T("\"", "left quote for key names") + keyName[it.first]
+			+ T("\"", "right quote for key names");
 	
 	return Format::Replace(text, subs);
 }
@@ -188,11 +191,11 @@ void Command::SetKey(Command command, int keycode)
 
 // Get the description of this command. If this command is a combination of more
 // than one command, an empty string is returned.
-const string &Command::Description() const
+string Command::Description() const
 {
 	static const string empty;
 	auto it = description.find(*this);
-	return (it == description.end() ? empty : it->second);
+	return (it == description.end() ? empty : T(it->second));
 }
 
 

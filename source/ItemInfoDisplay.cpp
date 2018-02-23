@@ -16,19 +16,57 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Color.h"
 #include "FillShader.h"
 #include "text/FontSet.h"
+#include "text/Format.h"
 #include "GameData.h"
 #include "text/layout.hpp"
 #include "Rectangle.h"
+#include "text/Gettext.h"
 #include "Screen.h"
 #include "text/Table.h"
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	const int HOVER_TIME = 60;
+	
+	const T_ NOUN[2] = { T_("outfit", "ItemInfoDisplay NOUN"), T_("ship", "ItemInfoDisplay NOUN") };
+	// TRANSLATORS: This "vowel" determines whether 'a' or 'an' is used.
+	const T_ vowel = T_("aeiou", "ItemInfoDisplay");
+	// TRANSLATORS: Indefinite article of a license.
+	const T_ indefiniteArticle[2] = { T_("a", "ItemInfoDisplay"), T_("an", "ItemInfoDisplay") };
+	// TRANSLATORS: %1%: indefinite article, %2%: license name.
+	const T_ licenseFormat = T_("%1% %2%", "ItemInfoDisplay License");
+	Format::ListOfWords listOfLicenses;
+
+	// The Hook of translation.
+	function<void()> updateCatalog([](){
+		// TRANSLATORS: The Separators of licenses.
+		listOfLicenses.SetSeparators(T(": and :, :, and ", "ItemInfoDisplay"));
+	});
+	// Set the hook.
+	volatile bool hooked = AddHookUpdating(&updateCatalog);
+	
+	
+	
+	// Get the license name.
+	string GetLicenseName(vector<string>::const_iterator it)
+	{
+		bool isVowel = false;
+		for(const char &c : vowel.Str())
+			if(*it->begin() == c || *it->begin() == toupper(c))
+			{
+				isVowel = true;
+				break;
+			}
+		const string postfix(" License");
+		return Format::StringF(licenseFormat.Str(), indefiniteArticle[isVowel].Str(),
+			T((*it) + postfix, "license: "));
+	}
 }
 
 const Layout ItemInfoDisplay::commonLayout = Layout(WIDTH - 20, Alignment::JUSTIFIED);
@@ -126,26 +164,11 @@ void ItemInfoDisplay::UpdateDescription(const string &text, const vector<string>
 		description.SetText(text);
 	else
 	{
-		static const string NOUN[2] = {"outfit", "ship"};
-		string fullText = text + "\tTo purchase this " + NOUN[isShip] + " you must have ";
-		for(unsigned i = 0; i < licenses.size(); ++i)
-		{
-			bool isVoweled = false;
-			for(const char &c : "aeiou")
-				if(*licenses[i].begin() == c || *licenses[i].begin() == toupper(c))
-					isVoweled = true;
-			if(i)
-			{
-				if(licenses.size() > 2)
-					fullText += ", ";
-				else
-					fullText += " ";
-			}
-			if(i && i == licenses.size() - 1)
-				fullText += "and ";
-			fullText += (isVoweled ? "an " : "a ") + licenses[i] + " License";
-		}
-		fullText += ".\n";
+		string fullText = text;
+		vector<string>::const_iterator it = licenses.begin();
+		fullText += Format::StringF(T("\tTo purchase this %1% you must have %2%.\n"),
+			NOUN[isShip].Str(),
+			listOfLicenses.GetList(licenses.size(), [&it](){ return GetLicenseName(it++); }));
 		description.SetText(fullText);
 	}
 	
@@ -181,8 +204,8 @@ Point ItemInfoDisplay::Draw(Point point, const vector<string> &labels, const vec
 		}
 		
 		CheckHover(table, labels[i]);
-		table.Draw(labels[i], values[i].empty() ? valueColor : labelColor);
-		table.Draw(values[i], valueColor);
+		table.Draw(T(labels[i], "Label of Attribute"), values[i].empty() ? valueColor : labelColor);
+		table.Draw(T(values[i]), valueColor);
 	}
 	return table.GetPoint();
 }

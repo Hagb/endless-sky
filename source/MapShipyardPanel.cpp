@@ -15,6 +15,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "CoreStartData.h"
 #include "text/Format.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Planet.h"
 #include "PlayerInfo.h"
 #include "Point.h"
@@ -27,9 +28,15 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include <algorithm>
 #include <limits>
+#include <map>
 #include <set>
 
 using namespace std;
+using namespace Gettext;
+
+namespace {
+	const T_ LABEL[] = {T_("Has no shipyard"), T_("Has shipyard"), T_("Sells this ship")};
+}
 
 
 
@@ -81,12 +88,7 @@ const ItemInfoDisplay &MapShipyardPanel::CompareInfo() const
 
 const string &MapShipyardPanel::KeyLabel(int index) const
 {
-	static const string LABEL[3] = {
-		"Has no shipyard",
-		"Has shipyard",
-		"Sells this ship"
-	};
-	return LABEL[index];
+	return LABEL[index].Str();
 }
 
 
@@ -175,12 +177,20 @@ void MapShipyardPanel::DrawItems()
 		if(DrawHeader(corner, category))
 			continue;
 		
+		// Translators may control order of ships.
+		// The translated keys may not be unique.
+		multimap<string, const Ship*> sortedShips;
 		for(const Ship *ship : it->second)
+			sortedShips.emplace(T(ship->ModelTrueName(), "sort key"), ship);
+		
+		for(const auto &sortedShip : sortedShips)
 		{
-			string price = Format::Credits(ship->Cost()) + " credits";
+			const Ship *ship = sortedShip.second;
+			string price = Format::Credits(ship->Cost()) + T(" credits", "MapShipyardPanel");
 			
-			string info = Format::Number(ship->Attributes().Get("shields")) + " shields / ";
-			info += Format::Number(ship->Attributes().Get("hull")) + " hull";
+			string info = Format::StringF(T("%1% shields / %2% hull"),
+				Format::Number(ship->Attributes().Get("shields")),
+				Format::Number(ship->Attributes().Get("hull")));
 			
 			bool isForSale = true;
 			if(player.HasVisited(*selectedSystem))
@@ -223,5 +233,5 @@ void MapShipyardPanel::Init()
 	
 	for(auto &it : catalog)
 		sort(it.second.begin(), it.second.end(),
-			[](const Ship *a, const Ship *b) { return a->ModelName() < b->ModelName(); });
+			[](const Ship *a, const Ship *b) { return a->ModelTrueName() < b->ModelTrueName(); });
 }

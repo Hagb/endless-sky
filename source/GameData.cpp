@@ -28,10 +28,12 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/FontSet.h"
 #include "Galaxy.h"
 #include "GameEvent.h"
+#include "text/Gettext.h"
 #include "Government.h"
 #include "Hazard.h"
 #include "ImageSet.h"
 #include "Interface.h"
+#include "Languages.h"
 #include "LineShader.h"
 #include "Minable.h"
 #include "Mission.h"
@@ -67,6 +69,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 class Sprite;
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	Set<Color> colors;
@@ -107,17 +110,17 @@ namespace {
 	Trade trade;
 	map<const System *, map<string, int>> purchases;
 	
-	map<const Sprite *, string> landingMessages;
+	map<const Sprite *, T_> landingMessages;
 	map<const Sprite *, double> solarPower;
 	map<const Sprite *, double> solarWind;
 	Set<News> news;
-	map<string, vector<string>> ratings;
+	map<string, vector<T_>> ratings;
 	
 	StarField background;
 	
-	map<string, string> tooltips;
-	map<string, string> helpMessages;
-	map<string, string> plugins;
+	map<string, vector<T_>> tooltips;
+	map<string, vector<T_>> helpMessages;
+	map<string, T_> plugins;
 	
 	SpriteQueue spriteQueue;
 	// Whether sprites and audio have finished loading at game startup.
@@ -211,6 +214,9 @@ bool GameData::BeginLoad(const char * const *argv)
 	// Add font and config files.
 	for(const string &source : sources)
 		FontSet::Add(source + "fonts/");
+	
+	// Search all message catalogs.
+	Languages::Init(sources);
 	
 	for(const string &source : sources)
 	{
@@ -306,7 +312,7 @@ void GameData::CheckReferences()
 			NameAndWarn("government", it);
 	// Minables are not serialized.
 	for(const auto &it : minables)
-		if(it.second.Name().empty())
+		if(it.second.TrueName().empty())
 			Warn("minable", it.first);
 	// Stock missions are never serialized, and an accepted mission is
 	// always fully defined (though possibly not "valid").
@@ -318,7 +324,7 @@ void GameData::CheckReferences()
 	
 	// Outfit names are used by a number of classes.
 	for(auto &&it : outfits)
-		if(it.second.Name().empty())
+		if(it.second.TrueName().empty())
 			NameAndWarn("outfit", it);
 	// Outfitters are never serialized.
 	for(const auto &it : outfitSales)
@@ -334,7 +340,7 @@ void GameData::CheckReferences()
 			NameAndWarn("planet", it);
 	// Ship model names are used by missions and depreciation.
 	for(auto &&it : ships)
-		if(it.second.ModelName().empty())
+		if(it.second.ModelTrueName().empty())
 		{
 			it.second.SetModelName(it.first);
 			Warn("ship", it.first);
@@ -345,7 +351,7 @@ void GameData::CheckReferences()
 			Files::LogError("Warning: shipyard \"" + it.first + "\" is referred to, but has no ships.");
 	// System names are used by a number of classes.
 	for(auto &&it : systems)
-		if(it.second.Name().empty() && !NameIfDeferred(deferred["system"], it))
+		if(it.second.TrueName().empty() && !NameIfDeferred(deferred["system"], it))
 			NameAndWarn("system", it);
 }
 
@@ -535,19 +541,19 @@ void GameData::WriteEconomy(DataWriter &out)
 			using Purchase = pair<const System *const, map<string, int>>;
 			WriteSorted(purchases,
 				[](const Purchase *lhs, const Purchase *rhs)
-					{ return lhs->first->Name() < rhs->first->Name(); },
+					{ return lhs->first->TrueName() < rhs->first->TrueName(); },
 				[&out](const Purchase &pit)
 				{
 					// Write purchases for all systems, even ones from removed plugins.
 					for(const auto &cit : pit.second)
-						out.Write(pit.first->Name(), cit.first, cit.second);
+						out.Write(pit.first->TrueName(), cit.first, cit.second);
 				});
 			out.EndChild();
 		}
 		// Write the "header" row.
 		out.WriteToken("system");
 		for(const auto &cit : GameData::Commodities())
-			out.WriteToken(cit.name);
+			out.WriteToken(cit.name.Original());
 		out.Write();
 		
 		// Write the per-system data for all systems that are either known-valid, or non-empty.
@@ -556,9 +562,9 @@ void GameData::WriteEconomy(DataWriter &out)
 			if(!sit.second.IsValid() && !sit.second.HasTrade())
 				continue;
 			
-			out.WriteToken(sit.second.Name());
+			out.WriteToken(sit.second.TrueName());
 			for(const auto &cit : GameData::Commodities())
-				out.WriteToken(static_cast<int>(sit.second.Supply(cit.name)));
+				out.WriteToken(static_cast<int>(sit.second.Supply(cit.name.Original())));
 			out.Write();
 		}
 	}
@@ -592,14 +598,14 @@ void GameData::StepEconomy()
 		if(!system.Links().empty())
 			for(const Trade::Commodity &commodity : trade.Commodities())
 			{
-				double supply = system.Supply(commodity.name);
+				double supply = system.Supply(commodity.name.Original());
 				for(const System *neighbor : system.Links())
 				{
 					double scale = neighbor->Links().size();
 					if(scale)
-						supply += neighbor->Exports(commodity.name) / scale;
+						supply += neighbor->Exports(commodity.name.Original()) / scale;
 				}
-				system.SetSupply(commodity.name, supply);
+				system.SetSupply(commodity.name.Original(), supply);
 			}
 	}
 }
@@ -876,6 +882,19 @@ const vector<Trade::Commodity> &GameData::SpecialCommodities()
 
 
 
+const std::string &GameData::DisplayNameOfCommodity(const std::string &name)
+{
+	for(const auto &it : trade.Commodities())
+		if(it.name.Original() == name)
+			return it.name.Str();
+	for(const auto &it : trade.SpecialCommodities())
+		if(it.name.Original() == name)
+			return it.name.Str();
+	return name;
+}
+
+
+
 // Custom messages to be shown when trying to land on certain stellar objects.
 bool GameData::HasLandingMessage(const Sprite *sprite)
 {
@@ -888,7 +907,7 @@ const string &GameData::LandingMessage(const Sprite *sprite)
 {
 	static const string EMPTY;
 	auto it = landingMessages.find(sprite);
-	return (it == landingMessages.end() ? EMPTY : it->second);
+	return (it == landingMessages.end() ? EMPTY : it->second.Str());
 }
 
 
@@ -919,7 +938,7 @@ const string &GameData::Rating(const string &type, int level)
 		return EMPTY;
 	
 	level = max(0, min<int>(it->second.size() - 1, level));
-	return it->second[level];
+	return it->second[level].Str();
 }
 
 
@@ -938,17 +957,25 @@ void GameData::SetHaze(const Sprite *sprite)
 
 
 
-const string &GameData::Tooltip(const string &label)
+string GameData::Tooltip(const string &label)
 {
 	static const string EMPTY;
 	auto it = tooltips.find(label);
 	// Special case: the "cost" and "sells for" labels include the percentage of
 	// the full price, so they will not match exactly.
-	if(it == tooltips.end() && !label.compare(0, 4, "cost"))
+	// TRANSLATORS: This translated string T("cost") must be equal to the begin
+	// TRANSLATORS: of the translated string T("cost (%1%%):") in the context
+	// TRANSLATORS: "ItemInfoDisplay."
+	const string costT = T("cost");
+	if(it == tooltips.end() && !label.compare(0, costT.length(), costT))
 		it = tooltips.find("cost:");
-	if(it == tooltips.end() && !label.compare(0, 9, "sells for"))
+	// TRANSLATORS: This translated string T("sells for") must be equal to the
+	// TRANSLATORS: begin of the translated string T("sells for (%1%%):") in the
+	// TRANSLATORS: context "ItemInfoDisplay."
+	const string sellsForT = T("sells for");
+	if(it == tooltips.end() && !label.compare(0, sellsForT.length(), sellsForT))
 		it = tooltips.find("sells for:");
-	return (it == tooltips.end() ? EMPTY : it->second);
+	return (it == tooltips.end() ? EMPTY : Concat(it->second));
 }
 
 
@@ -957,19 +984,19 @@ string GameData::HelpMessage(const string &name)
 {
 	static const string EMPTY;
 	auto it = helpMessages.find(name);
-	return Command::ReplaceNamesWithKeys(it == helpMessages.end() ? EMPTY : it->second);
+	return Command::ReplaceNamesWithKeys(it == helpMessages.end() ? EMPTY : Concat(it->second));
 }
 
 
 
-const map<string, string> &GameData::HelpTemplates()
+const map<string, vector<T_>> &GameData::HelpTemplates()
 {
 	return helpMessages;
 }
 
 
 
-const map<string, string> &GameData::PluginAboutText()
+const map<string, T_> &GameData::PluginAboutText()
 {
 	return plugins;
 }
@@ -984,14 +1011,16 @@ void GameData::LoadSources()
 	vector<string> globalPlugins = Files::ListDirectories(Files::Resources() + "plugins/");
 	for(const string &path : globalPlugins)
 	{
-		if(Files::Exists(path + "data") || Files::Exists(path + "images") || Files::Exists(path + "sounds"))
+		if(Files::Exists(path + "data") || Files::Exists(path + "images") || Files::Exists(path + "sounds")
+			|| Files::Exists(path + "locales"))
 			sources.push_back(path);
 	}
 	
 	vector<string> localPlugins = Files::ListDirectories(Files::Config() + "plugins/");
 	for(const string &path : localPlugins)
 	{
-		if(Files::Exists(path + "data") || Files::Exists(path + "images") || Files::Exists(path + "sounds"))
+		if(Files::Exists(path + "data") || Files::Exists(path + "images") || Files::Exists(path + "sounds")
+			|| Files::Exists(path + "locales"))
 			sources.push_back(path);
 	}
 	
@@ -1003,7 +1032,7 @@ void GameData::LoadSources()
 		string name = it->substr(pos, it->length() - 1 - pos);
 		
 		// Load the about text and the icon, if any.
-		plugins[name] = Files::Read(*it + "about.txt");
+		plugins[name] = T_(Files::Read(*it + "about.txt"));
 		
 		// Create an image set for the plugin icon.
 		shared_ptr<ImageSet> icon(new ImageSet(name));
@@ -1057,6 +1086,8 @@ void GameData::LoadFile(const string &path, bool debugMode)
 			hazards.Get(node.Token(1))->Load(node);
 		else if(key == "interface" && node.Size() >= 2)
 			interfaces.Get(node.Token(1))->Load(node);
+		else if(key == "language")
+			Languages::Load(node);
 		else if(key == "minable" && node.Size() >= 2)
 			minables.Get(node.Token(1))->Load(node);
 		else if(key == "mission" && node.Size() >= 2)
@@ -1107,7 +1138,7 @@ void GameData::LoadFile(const string &path, bool debugMode)
 		else if(key == "landing message" && node.Size() >= 2)
 		{
 			for(const DataNode &child : node)
-				landingMessages[SpriteSet::Get(child.Token(0))] = node.Token(1);
+				landingMessages[SpriteSet::Get(child.Token(0))] = T_(node.Token(1));
 		}
 		else if(key == "star" && node.Size() >= 2)
 		{
@@ -1126,24 +1157,25 @@ void GameData::LoadFile(const string &path, bool debugMode)
 			news.Get(node.Token(1))->Load(node);
 		else if(key == "rating" && node.Size() >= 2)
 		{
-			vector<string> &list = ratings[node.Token(1)];
+			vector<T_> &list = ratings[node.Token(1)];
 			list.clear();
 			for(const DataNode &child : node)
-				list.push_back(child.Token(0));
+				list.push_back(T_(child.Token(0), "rating"));
 		}
 		else if((key == "tip" || key == "help") && node.Size() >= 2)
 		{
-			string &text = (key == "tip" ? tooltips : helpMessages)[node.Token(1)];
+			vector<T_> &text = (key == "tip" ? tooltips : helpMessages)[node.Token(1)];
 			text.clear();
 			for(const DataNode &child : node)
 			{
 				if(!text.empty())
 				{
-					text += '\n';
+					string sep(1, '\n');
 					if(child.Token(0)[0] != '\t')
-						text += '\t';
+						sep += '\t';
+					text.push_back(Tx(sep));
 				}
-				text += child.Token(0);
+				text.push_back(T_(child.Token(0)));
 			}
 		}
 		else
@@ -1208,7 +1240,7 @@ void GameData::PrintShipTable()
 	for(auto &it : ships)
 	{
 		// Skip variants and unnamed / partially-defined ships.
-		if(it.second.ModelName() != it.first)
+		if(it.second.ModelTrueName() != it.first)
 			continue;
 		
 		const Ship &ship = it.second;

@@ -19,6 +19,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <cmath>
 
 using namespace std;
+using namespace Gettext;
 
 
 
@@ -41,7 +42,7 @@ int64_t Mortgage::Maximum(int64_t annualRevenue, int creditScore, int64_t curren
 
 // Create a new mortgage of the given amount.
 Mortgage::Mortgage(int64_t principal, int creditScore, int term)
-	: type(creditScore <= 0 ? "Fine" : "Mortgage"),
+	: type(creditScore <= 0 ? T_("Fine") : T_("Mortgage")),
 	principal(principal),
 	interest((600 - creditScore / 2) * .00001),
 	interestString("0." + to_string(600 - creditScore / 2) + "%"),
@@ -63,9 +64,9 @@ Mortgage::Mortgage(const DataNode &node)
 void Mortgage::Load(const DataNode &node)
 {
 	if(node.Size() >= 2)
-		type = node.Token(1);
+		type = T_(node.Token(1), T_::FORCE);
 	else
-		type = "Mortgage";
+		type = T_("Mortgage", T_::FORCE);
 	
 	for(const DataNode &child : node)
 	{
@@ -86,7 +87,7 @@ void Mortgage::Load(const DataNode &node)
 
 void Mortgage::Save(DataWriter &out) const
 {
-	out.Write("mortgage", type);
+	out.Write("mortgage", type.Original());
 	out.BeginChild();
 	{
 		out.Write("principal", principal);
@@ -135,7 +136,15 @@ int64_t Mortgage::PayExtra(int64_t amount)
 // and "Fine" if this is a fine imposed on you for illegal activities.
 const string &Mortgage::Type() const
 {
-	return type;
+	return type.Original();
+}
+
+
+
+// The TypeName() is equivallent Type(), but this function can return a translated text.
+const std::string &Mortgage::TypeName() const
+{
+	return type.Str();
 }
 
 

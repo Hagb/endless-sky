@@ -168,6 +168,8 @@
 		<Unit filename="source/Interface.h" />
 		<Unit filename="source/ItemInfoDisplay.cpp" />
 		<Unit filename="source/ItemInfoDisplay.h" />
+		<Unit filename="source/Languages.cpp" />
+		<Unit filename="source/Languages.h" />
 		<Unit filename="source/LineShader.cpp" />
 		<Unit filename="source/LineShader.h" />
 		<Unit filename="source/LoadPanel.cpp" />
@@ -327,6 +329,8 @@
 		<Unit filename="source/text/FontUtilities.h" />
 		<Unit filename="source/text/Format.cpp" />
 		<Unit filename="source/text/Format.h" />
+		<Unit filename="source/text/Gettext.cpp" />
+		<Unit filename="source/text/Gettext.h" />
 		<Unit filename="source/text/Table.cpp" />
 		<Unit filename="source/text/Table.h" />
 		<Unit filename="source/text/Utf8.cpp" />
@@ -334,6 +338,12 @@
 		<Unit filename="source/text/alignment.hpp" />
 		<Unit filename="source/text/layout.hpp" />
 		<Unit filename="source/text/truncate.hpp" />
+		<Unit filename="source/spiritless_po/Catalog.h" />
+		<Unit filename="source/spiritless_po/Common.h" />
+		<Unit filename="source/spiritless_po/MetadataParser.h" />
+		<Unit filename="source/spiritless_po/PluralParser.h" />
+		<Unit filename="source/spiritless_po/PoParser.h" />
+		<Unit filename="source/spiritless_po/spiritless_po.h" />
 		<Extensions>
 			<editor_config active="1" use_tabs="1" tab_indents="1" tab_width="4" indent="4" eol_mode="0" />
 			<lib_finder disable_auto="1" />

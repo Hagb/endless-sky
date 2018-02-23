@@ -50,6 +50,9 @@ class StartConditions;
 class System;
 class Test;
 class TestData;
+namespace Gettext {
+	class T_;
+}
 
 
 
@@ -127,6 +130,8 @@ public:
 	
 	static const std::vector<Trade::Commodity> &Commodities();
 	static const std::vector<Trade::Commodity> &SpecialCommodities();
+	// Convert the display name. If the name is not commodity name, it's unchanged.
+	static const std::string &DisplayNameOfCommodity(const std::string &name);
 	
 	// Custom messages to be shown when trying to land on certain stellar objects.
 	static bool HasLandingMessage(const Sprite *sprite);
@@ -141,12 +146,11 @@ public:
 	static const StarField &Background();
 	static void SetHaze(const Sprite *sprite);
 	
-	static const std::string &Tooltip(const std::string &label);
+	static std::string Tooltip(const std::string &label);
 	static std::string HelpMessage(const std::string &name);
-	static const std::map<std::string, std::string> &HelpTemplates();
+	static const std::map<std::string, std::vector<Gettext::T_>> &HelpTemplates();
 	
-	static const std::map<std::string, std::string> &PluginAboutText();
-	
+	static const std::map<std::string, Gettext::T_> &PluginAboutText();
 	
 private:
 	static void LoadSources();

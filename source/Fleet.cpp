@@ -116,7 +116,7 @@ namespace {
 			// random and then double-check that it's a valid commodity name.
 			const string &name = commodities[Random::Int(commodities.size())];
 			for(const auto &it : GameData::Commodities())
-				if(it.name == name)
+				if(it.name.Original() == name)
 				{
 					index = &it - &GameData::Commodities().front();
 					break;
@@ -125,7 +125,7 @@ namespace {
 		
 		const Trade::Commodity &commodity = GameData::Commodities()[index];
 		int amount = Random::Int(freeSpace) + 1;
-		ship.Cargo().Add(commodity.name, amount);
+		ship.Cargo().Add(commodity.name.Original(), amount);
 	}
 	
 	// Add a random outfit from the list to the ship's cargo.
@@ -589,7 +589,7 @@ vector<shared_ptr<Ship>> Fleet::Instantiate(const Variant &variant) const
 		// At least one of this variant's ships is valid, but we should avoid spawning any that are not defined.
 		if(!model->IsValid())
 		{
-			Files::LogError("Skipping invalid ship model \"" + model->ModelName() + "\" in fleet \"" + fleetName + "\".");
+			Files::LogError("Skipping invalid ship model \"" + model->ModelTrueName() + "\" in fleet \"" + fleetName + "\".");
 			continue;
 		}
 		

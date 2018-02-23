@@ -19,8 +19,10 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/FontSet.h"
 #include "text/Format.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Interface.h"
 #include "Information.h"
+#include "Languages.h"
 #include "LoadPanel.h"
 #include "MainPanel.h"
 #include "Planet.h"
@@ -43,6 +45,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <stdexcept>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	float alpha = 1.f;
@@ -92,7 +95,8 @@ void MenuPanel::Draw()
 	if(player.IsLoaded() && !player.IsDead())
 	{
 		info.SetCondition("pilot loaded");
-		info.SetString("pilot", player.FirstName() + " " + player.LastName());
+		const string fullname = Languages::GetFullname(player.FirstName(), player.LastName());
+		info.SetString("pilot", fullname);
 		if(player.Flagship())
 		{
 			const Ship &flagship = *player.Flagship();
@@ -110,13 +114,14 @@ void MenuPanel::Draw()
 	else if(player.IsLoaded())
 	{
 		info.SetCondition("no pilot loaded");
-		info.SetString("pilot", player.FirstName() + " " + player.LastName());
-		info.SetString("ship", "You have died.");
+		const string fullname = Languages::GetFullname(player.FirstName(), player.LastName());
+		info.SetString("pilot", fullname);
+		info.SetString("ship", T("You have died."));
 	}
 	else
 	{
 		info.SetCondition("no pilot loaded");
-		info.SetString("pilot", "No Pilot Loaded");
+		info.SetString("pilot", T("No Pilot Loaded", "MenuPanel"));
 	}
 	
 	GameData::Interfaces().Get("menu background")->Draw(info, this);

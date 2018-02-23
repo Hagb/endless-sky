@@ -24,6 +24,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/Format.h"
 #include "Galaxy.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Government.h"
 #include "Information.h"
 #include "Interface.h"
@@ -56,6 +57,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <limits>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	// Log how many player ships and stored outfits are in a given system, tracking for
@@ -200,11 +202,11 @@ void MapPanel::Draw()
 	
 	if(selectedSystem != &playerSystem && !distance.HasRoute(selectedSystem))
 	{
-		static const string UNAVAILABLE = "You have no available route to this system.";
-		static const string UNKNOWN = "You have not yet mapped a route to this system.";
+		static const T_ UNAVAILABLE = T_("You have no available route to this system.");
+		static const T_ UNKNOWN = T_("You have not yet mapped a route to this system.");
 		const Font &font = FontSet::Get(18);
 		
-		const string &message = player.HasVisited(*selectedSystem) ? UNAVAILABLE : UNKNOWN;
+		const string &message = player.HasVisited(*selectedSystem) ? UNAVAILABLE.Str() : UNKNOWN.Str();
 		Point point(-font.Width(message) / 2, Screen::Top() + 40);
 		font.Draw(message, point + Point(1, 1), black);
 		font.Draw(message, point, red);
@@ -249,11 +251,11 @@ void MapPanel::DrawMiniMap(const PlayerInfo &player, float alpha, const System *
 	const Ship *flagship = player.Flagship();
 	for(int i = 0; i < 2; ++i)
 	{
-		static const string UNKNOWN_SYSTEM = "Unexplored System";
+		static const T_ UNKNOWN_SYSTEM = T_("Unexplored System", "MapPanel");
 		const System &system = *jump[i];
 		const Government *gov = system.GetGovernment();
 		Point from = system.Position() - center + drawPos;
-		const string &name = player.KnowsName(system) ? system.Name() : UNKNOWN_SYSTEM;
+		const string &name = player.KnowsName(system) ? system.Name() : UNKNOWN_SYSTEM.Str();
 		font.Draw(name, from + Point(OUTER, -.5 * font.Height()), lineColor);
 		
 		// Draw the origin and destination systems, since they
@@ -384,7 +386,7 @@ bool MapPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command, bool
 	else if(key == 'f')
 	{
 		GetUI()->Push(new Dialog(
-			this, &MapPanel::Find, "Search for:"));
+			this, &MapPanel::Find, T("Search for:", "MapPanel")));
 		return true;
 	}
 	else if(key == SDLK_PLUS || key == SDLK_KP_PLUS || key == SDLK_EQUALS)
@@ -629,7 +631,9 @@ void MapPanel::Find(const string &name)
 	for(const auto &it : GameData::Systems())
 		if(it.second.IsValid() && player.HasVisited(it.second))
 		{
-			int index = Search(it.first, name);
+			int index = Search(it.second.Name(), name);
+			if(index < 0)
+				index = Search(it.first, name);
 			if(index >= 0 && index < bestIndex)
 			{
 				bestIndex = index;
@@ -645,7 +649,9 @@ void MapPanel::Find(const string &name)
 	for(const auto &it : GameData::Planets())
 		if(it.second.IsValid() && player.HasVisited(*it.second.GetSystem()))
 		{
-			int index = Search(it.first, name);
+			int index = Search(it.second.Name(), name);
+			if(index < 0)
+				index = Search(it.first, name);
 			if(index >= 0 && index < bestIndex)
 			{
 				bestIndex = index;
@@ -741,7 +747,7 @@ void MapPanel::UpdateCache()
 				if(commodity >= 0)
 				{
 					const Trade::Commodity &com = GameData::Commodities()[commodity];
-					double price = system.Trade(com.name);
+					double price = system.Trade(com.name.Original());
 					if(!price)
 						value = numeric_limits<double>::quiet_NaN();
 					else
@@ -1170,28 +1176,36 @@ void MapPanel::DrawTooltips()
 	if(tooltip.empty())
 	{
 		pair<pair<int, int>, int> t = escortSystems.at(hoverSystem);
+		string tooltipBase = T("%1%", "MapPanel");
 		if(hoverSystem == &playerSystem)
 		{
 			--t.first.first;
 			if(t.first.first || t.first.second || t.second)
-				tooltip = "You are here, with:\n";
+				tooltipBase = T("You are here, with:\n%1%");
 			else
-				tooltip = "You are here.";
+				tooltipBase = T("You are here.");
 		}
 		// If you have both active and parked escorts, call the active ones
 		// "active escorts." Otherwise, just call them "escorts."
+		string tooltipEscort;
 		if(t.first.first && t.first.second)
-			tooltip += to_string(t.first.first) + (t.first.first == 1 ? " active escort\n" : " active escorts\n");
+			tooltipEscort = Format::StringF(nT("%1% active escort\n", "%1% active escorts\n", t.first.first),
+				to_string(t.first.first));
 		else if(t.first.first)
-			tooltip += to_string(t.first.first) + (t.first.first == 1 ? " escort" : " escorts");
+			tooltipEscort = Format::StringF(nT("%1% escort", "%1% escorts", t.first.first),
+				to_string(t.first.first));
 		if(t.first.second)
-			tooltip += to_string(t.first.second) + (t.first.second == 1 ? " parked escort" : " parked escorts");
+			tooltipEscort += Format::StringF(nT("%1% parked escort", "%1% parked escorts", t.first.second),
+				to_string(t.first.second));
 		if(t.second)
 		{
 			if(t.first.first || t.first.second)
-				tooltip += "\n";
-			tooltip += to_string(t.second) + (t.second == 1 ? " stored outfit" : " stored outfits");
+				tooltipEscort += T("\n", "MapPanel");
+			tooltipEscort += Format::StringF(nT("%1% stored outfit", "%1% stored outfits", t.second),
+				to_string(t.second));
 		}
+		
+		tooltip = Format::StringF(tooltipBase, tooltipEscort);
 	}
 	if(!tooltip.empty())
 	{

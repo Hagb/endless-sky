@@ -23,6 +23,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "GameData.h"
 #include "Government.h"
 #include "Hazard.h"
+#include "Languages.h"
 #include "Mask.h"
 #include "Messages.h"
 #include "Phrase.h"
@@ -45,6 +46,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <sstream>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	const string FIGHTER_REPAIR = "Repair fighters in";
@@ -134,15 +136,15 @@ namespace {
 
 
 const vector<string> Ship::CATEGORIES = {
-	"Transport",
-	"Light Freighter",
-	"Heavy Freighter",
-	"Interceptor",
-	"Light Warship",
-	"Medium Warship",
-	"Heavy Warship",
-	"Fighter",
-	"Drone"
+	G("Transport"),
+	G("Light Freighter"),
+	G("Heavy Freighter"),
+	G("Interceptor"),
+	G("Light Warship"),
+	G("Medium Warship"),
+	G("Heavy Warship"),
+	G("Fighter"),
+	G("Drone")
 };
 
 
@@ -207,11 +209,11 @@ void Ship::Load(const DataNode &node)
 		else if(key == "name" && child.Size() >= 2)
 			// The name of this particular ship has to convert to the escaped text for internal use
 			// because it's saved as raw text to keep compatibility.
-			name = FontUtilities::Escape(child.Token(1));
+			name = T_(FontUtilities::Escape(child.Token(1)), "ship");
 		else if(key == "plural" && child.Size() >= 2)
 			pluralModelName = child.Token(1);
 		else if(key == "noun" && child.Size() >= 2)
-			noun = child.Token(1);
+			noun = T_(child.Token(1), "ship");
 		else if(key == "swizzle" && child.Size() >= 2)
 			customSwizzle = child.Value(1);
 		else if(key == "attributes" || add)
@@ -458,12 +460,15 @@ void Ship::Load(const DataNode &node)
 				description.clear();
 				hasDescription = true;
 			}
-			description += child.Token(1);
-			description += '\n';
+			description.emplace_back(child.Token(1));
+			description.push_back(Tx("\n"));
 		}
 		else if(key != "actions")
 			child.PrintTrace("Skipping unrecognized attribute:");
 	}
+	
+	if(noun.Original().empty())
+		noun = T_("ship", "ship");
 }
 
 
@@ -482,7 +487,7 @@ void Ship::FinishLoading(bool isNewInstance)
 		explosionWeapon = &model->BaseAttributes();
 		if(pluralModelName.empty())
 			pluralModelName = model->pluralModelName;
-		if(noun.empty())
+		if(noun.Original().empty())
 			noun = model->noun;
 		if(!thumbnail)
 			thumbnail = model->thumbnail;
@@ -515,7 +520,7 @@ void Ship::FinishLoading(bool isNewInstance)
 			finalExplosions = base->finalExplosions;
 		if(outfits.empty())
 			outfits = base->outfits;
-		if(description.empty())
+		if(IsEmptyText(description))
 			description = base->description;
 		
 		bool hasHardpoints = false;
@@ -581,9 +586,9 @@ void Ship::FinishLoading(bool isNewInstance)
 			it.second -= excess;
 			
 			string warning = modelName;
-			if(!name.empty())
-				warning += " \"" + FontUtilities::Unescape(name) + "\"";
-			warning += ": outfit \"" + it.first->Name() + "\" equipped but not included in outfit list.";
+			if(!name.Original().empty())
+				warning += " \"" + FontUtilities::Unescape(name.Original()) + "\"";
+			warning += ": outfit \"" + it.first->TrueName() + "\" equipped but not included in outfit list.";
 			Files::LogError(warning);
 		}
 		else if(!it.first->IsWeapon())
@@ -592,9 +597,9 @@ void Ship::FinishLoading(bool isNewInstance)
 			// hardpoint. Hardpoint::Install removes it, but issue a
 			// warning so the definition can be fixed.
 			string warning = modelName;
-			if(!name.empty())
-				warning += " \"" + FontUtilities::Unescape(name) + "\"";
-			warning += ": outfit \"" + it.first->Name() + "\" is not a weapon, but is installed as one.";
+			if(!name.Original().empty())
+				warning += " \"" + FontUtilities::Unescape(name.Original()) + "\"";
+			warning += ": outfit \"" + it.first->TrueName() + "\" is not a weapon, but is installed as one.";
 			Files::LogError(warning);
 		}
 	}
@@ -621,7 +626,7 @@ void Ship::FinishLoading(bool isNewInstance)
 	{
 		if(!it.first->IsDefined())
 		{
-			undefinedOutfits.emplace_back("\"" + it.first->Name() + "\"");
+			undefinedOutfits.emplace_back("\"" + it.first->TrueName() + "\"");
 			continue;
 		}
 		attributes.Add(*it.first, it.second);
@@ -647,7 +652,7 @@ void Ship::FinishLoading(bool isNewInstance)
 		string message;
 		if(isYours)
 		{
-			message = "Player ship " + modelName + " \"" + FontUtilities::Unescape(name) + "\":";
+			message = "Player ship " + modelName + " \"" + FontUtilities::Unescape(name.Original()) + "\":";
 			string PREFIX = plural ? "\n\tUndefined outfit " : " undefined outfit ";
 			for(auto &&outfit : undefinedOutfits)
 				message += PREFIX + outfit;
@@ -672,12 +677,12 @@ void Ship::FinishLoading(bool isNewInstance)
 				&& (hardpoint.IsTurret() != (outfit->Get("turret mounts") != 0.)))
 		{
 			string warning = (!isYours && !variantName.empty()) ? "variant \"" + variantName + "\"" : modelName;
-			if(!name.empty())
-				warning += " \"" + FontUtilities::Unescape(name) + "\"";
-			warning += ": outfit \"" + outfit->Name() + "\" installed as a ";
+			if(!name.Original().empty())
+				warning += " \"" + FontUtilities::Unescape(name.Original()) + "\"";
+			warning += ": outfit \"" + outfit->TrueName() + "\" installed as a ";
 			warning += (hardpoint.IsTurret() ? "turret but is a gun.\n\tturret" : "gun but is a turret.\n\tgun");
 			warning += to_string(2. * hardpoint.GetPoint().X()) + " " + to_string(2. * hardpoint.GetPoint().Y());
-			warning += " \"" + outfit->Name() + "\"";
+			warning += " \"" + outfit->TrueName() + "\"";
 			Files::LogError(warning);
 		}
 	}
@@ -714,11 +719,11 @@ void Ship::FinishLoading(bool isNewInstance)
 	{
 		// This check is mostly useful for variants and stock ships, which have
 		// no names. Print the outfits to facilitate identifying this ship definition.
-		string message = (!name.empty() ? "Ship \"" + FontUtilities::Unescape(name) + "\" " : "")
-			+ "(" + modelName + "):\n";
+		string message = (!name.Original().empty() ? "Ship \"" + FontUtilities::Unescape(name.Original())
+			+ "\" " : "") + "(" + modelName + "):\n";
 		ostringstream outfitNames("outfits:\n");
 		for(const auto &it : outfits)
-			outfitNames << '\t' << it.second << " " + it.first->Name() << endl;
+			outfitNames << '\t' << it.second << " " + it.first->TrueName() << endl;
 		Files::LogError(message + warning + outfitNames.str());
 	}
 	
@@ -752,11 +757,11 @@ void Ship::Save(DataWriter &out) const
 	out.BeginChild();
 	{
 		// The name of this particular ship is saved as raw text to keep compatibility.
-		out.Write("name", FontUtilities::Unescape(name));
+		out.Write("name", FontUtilities::Unescape(name.Str()));
 		if(pluralModelName != modelName + 's')
 			out.Write("plural", pluralModelName);
-		if(!noun.empty())
-			out.Write("noun", noun);
+		if(!noun.Str().empty())
+			out.Write("noun", noun.Str());
 		SaveSprite(out);
 		if(thumbnail)
 			out.Write("thumbnail", thumbnail->Name());
@@ -828,12 +833,12 @@ void Ship::Save(DataWriter &out) const
 			using OutfitElement = pair<const Outfit *const, int>;
 			WriteSorted(outfits,
 				[](const OutfitElement *lhs, const OutfitElement *rhs)
-					{ return lhs->first->Name() < rhs->first->Name(); },
+					{ return lhs->first->TrueName() < rhs->first->TrueName(); },
 				[&out](const OutfitElement &it){
 					if(it.second == 1)
-						out.Write(it.first->Name());
+						out.Write(it.first->TrueName());
 					else
-						out.Write(it.first->Name(), it.second);
+						out.Write(it.first->TrueName(), it.second);
 				});
 		}
 		out.EndChild();
@@ -879,7 +884,7 @@ void Ship::Save(DataWriter &out) const
 			const char *type = (hardpoint.IsTurret() ? "turret" : "gun");
 			if(hardpoint.GetOutfit())
 				out.Write(type, 2. * hardpoint.GetPoint().X(), 2. * hardpoint.GetPoint().Y(),
-					hardpoint.GetOutfit()->Name());
+					hardpoint.GetOutfit()->TrueName());
 			else
 				out.Write(type, 2. * hardpoint.GetPoint().X(), 2. * hardpoint.GetPoint().Y());
 			double hardpointAngle = hardpoint.GetBaseAngle().Degrees();
@@ -934,18 +939,18 @@ void Ship::Save(DataWriter &out) const
 		});
 		
 		if(currentSystem)
-			out.Write("system", currentSystem->Name());
+			out.Write("system", currentSystem->TrueName());
 		else
 		{
 			// A carried ship is saved in its carrier's system.
 			shared_ptr<const Ship> parent = GetParent();
 			if(parent && parent->currentSystem)
-				out.Write("system", parent->currentSystem->Name());
+				out.Write("system", parent->currentSystem->TrueName());
 		}
 		if(landingPlanet)
 			out.Write("planet", landingPlanet->TrueName());
 		if(targetSystem)
-			out.Write("destination system", targetSystem->Name());
+			out.Write("destination system", targetSystem->TrueName());
 		if(isParked)
 			out.Write("parked");
 	}
@@ -956,7 +961,7 @@ void Ship::Save(DataWriter &out) const
 
 const string &Ship::Name() const
 {
-	return name;
+	return name.Str();
 }
 
 
@@ -965,26 +970,34 @@ const string &Ship::Name() const
 void Ship::SetModelName(const string &model)
 {
 	this->modelName = model;
+	this->pluralModelName = model + 's';
 }
 
 
 
-const string &Ship::ModelName() const
+string Ship::ModelName(unsigned long n) const
+{
+	return nT(modelName, pluralModelName, "ship", n);
+}
+
+
+
+string Ship::PluralModelName() const
+{
+	return T(pluralModelName, "ship");
+}
+
+
+
+const string &Ship::ModelTrueName() const
 {
 	return modelName;
 }
 
 
 
-const string &Ship::PluralModelName() const
-{
-	return pluralModelName;
-}
-
-
-
 // Get the name of this ship as a variant.
-const string &Ship::VariantName() const
+const string &Ship::VariantTrueName() const
 {
 	return variantName.empty() ? modelName : variantName;
 }
@@ -994,16 +1007,15 @@ const string &Ship::VariantName() const
 // Get the generic noun (e.g. "ship") to be used when describing this ship.
 const string &Ship::Noun() const
 {
-	static const string SHIP = "ship";
-	return noun.empty() ? SHIP : noun;
+	return noun.Str();
 }
 
 
 
 // Get this ship's description.
-const string &Ship::Description() const
+string Ship::Description() const
 {
-	return description;
+	return Concat(description);
 }
 
 
@@ -1147,9 +1159,10 @@ void Ship::Place(Point position, Point velocity, Angle angle)
 
 
 // Set the name of this particular ship in the form of raw text.
+// Supposedly, this name is already translated.
 void Ship::SetName(const string &name)
 {
-	this->name = FontUtilities::Escape(name);
+	this->name = T_(FontUtilities::Escape(name), "ship");
 }
 
 
@@ -1262,6 +1275,7 @@ string Ship::GetHail(const PlayerInfo &player) const
 	
 	subs["<first>"] = player.FirstName();
 	subs["<last>"] = player.LastName();
+	subs["<fullname>"] = Languages::GetFullname(player.FirstName(), player.LastName());
 	if(player.Flagship())
 		subs["<ship>"] = player.Flagship()->Name();
 	
@@ -1674,9 +1688,10 @@ void Ship::Move(vector<Visual> &visuals, list<shared_ptr<Flotsam>> &flotsam)
 	{
 		pilotError = 30;
 		if(parent.lock() || !isYours)
-			Messages::Add("The " + name + " is moving erratically because there are not enough crew to pilot it.");
+			Messages::Add(Format::StringF(T("The %1% is moving erratically because "
+				"there are not enough crew to pilot it."), name.Str()));
 		else
-			Messages::Add("Your ship is moving erratically because you do not have enough crew to pilot it.");
+			Messages::Add(T("Your ship is moving erratically because you do not have enough crew to pilot it."));
 	}
 	else
 		pilotOkay = 30;
@@ -1832,7 +1847,7 @@ void Ship::Move(vector<Visual> &visuals, list<shared_ptr<Flotsam>> &flotsam)
 					// boarding sequence (including locking on to the ship) but
 					// not to actually board, if they are cloaked.
 					if(isYours)
-						Messages::Add("You cannot board a ship while cloaked.");
+						Messages::Add(T("You cannot board a ship while cloaked."));
 				}
 				else
 				{
@@ -1840,8 +1855,8 @@ void Ship::Move(vector<Visual> &visuals, list<shared_ptr<Flotsam>> &flotsam)
 					bool isEnemy = government->IsEnemy(target->government);
 					if(isEnemy && Random::Real() < target->Attributes().Get("self destruct"))
 					{
-						Messages::Add("The " + target->ModelName() + " \"" + target->Name()
-							+ "\" has activated its self-destruct mechanism.");
+						Messages::Add(Format::StringF(T("The %1% \"%2%\" has activated its self-destruct mechanism."),
+							target->ModelName(), target->Name()));
 						GetTargetShip()->SelfDestruct();
 					}
 					else
@@ -2252,22 +2267,23 @@ int Ship::Scan()
 	if(startedScanning && isYours)
 	{
 		if(!target->Name().empty())
-			Messages::Add("Attempting to scan the " + target->Noun() + " \"" + target->Name() + "\".", false);
+			Messages::Add(Format::StringF(T("Attempting to scan the %1% \"%2%\"."),
+				target->Noun(), target->Name()), false);
 		else
-			Messages::Add("Attempting to scan the selected " + target->Noun() + ".", false);
+			Messages::Add(Format::StringF(T("Attempting to scan the selected %1%."), target->Noun()), false);
 	}
 	else if(startedScanning && target->isYours)
-		Messages::Add("The " + government->GetName() + " " + Noun() + " \""
-			+ Name() + "\" is attempting to scan you.", false);
+		Messages::Add(Format::StringF(T("The %1% %2% \"%3%\" is attempting to scan you."),
+			government->GetName(), Noun(), Name()), false);
 	
 	if(target->isYours && !isYours)
 	{
 		if(result & ShipEvent::SCAN_CARGO)
-			Messages::Add("The " + government->GetName() + " " + Noun() + " \""
-					+ Name() + "\" completed its scan of your cargo.");
+			Messages::Add(Format::StringF(T("The %1% %2% \"%3%\" completed its scan of your cargo."),
+				government->GetName(), Noun(), Name()));
 		if(result & ShipEvent::SCAN_OUTFITS)
-			Messages::Add("The " + government->GetName() + " " + Noun() + " \""
-					+ Name() + "\" completed its scan of your outfits.");
+			Messages::Add(Format::StringF(T("The %1% %2% \"%3%\" completed its scan of your outfits."),
+				government->GetName(), Noun(), Name()));
 	}
 	
 	return result;

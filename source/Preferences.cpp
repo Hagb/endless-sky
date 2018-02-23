@@ -18,12 +18,16 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "DataWriter.h"
 #include "Files.h"
 #include "GameWindow.h"
+#include "text/Gettext.h"
+#include "Languages.h"
 #include "Screen.h"
 
 #include <algorithm>
 #include <map>
+#include <utility>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	map<string, bool> settings;
@@ -38,7 +42,7 @@ namespace {
 	constexpr double VOLUME_SCALE = .25;
 	
 	// Enable standard VSync by default.
-	const vector<string> VSYNC_SETTINGS = {"off", "on", "adaptive"};
+	const vector<string> VSYNC_SETTINGS = {G("off", "vsync"), G("on", "vsync"), G("adaptive", "vsync")};
 	int vsyncIndex = 1;
 }
 
@@ -80,6 +84,10 @@ void Preferences::Load()
 			zoomIndex = max<int>(0, min<int>(node.Value(1), ZOOMS.size() - 1));
 		else if(node.Token(0) == "vsync")
 			vsyncIndex = max<int>(0, min<int>(node.Value(1), VSYNC_SETTINGS.size() - 1));
+		else if(node.Token(0) == "language" && node.Size() >= 2)
+			Languages::SetLanguageID(node.Token(1));
+		else if(node.Token(0) == "fullname format" && node.Size() >= 2)
+			Languages::SetFullnameFormat(node.Token(1));
 		else
 			settings[node.Token(0)] = (node.Size() == 1 || node.Value(1));
 	}
@@ -97,6 +105,8 @@ void Preferences::Save()
 	out.Write("scroll speed", scrollSpeed);
 	out.Write("view zoom", zoomIndex);
 	out.Write("vsync", vsyncIndex);
+	out.Write("language", Languages::GetLanguageID());
+	out.Write("fullname format", Languages::GetFullnameFormat());
 	
 	for(const auto &it : settings)
 		out.Write(it.first, it.second);
@@ -131,7 +141,7 @@ void Preferences::ToggleAmmoUsage()
 
 string Preferences::AmmoUsage()
 {
-	return Has(EXPEND_AMMO) ? Has(FRUGAL_ESCORTS) ? "frugally" : "always" : "never";
+	return Has(EXPEND_AMMO) ? Has(FRUGAL_ESCORTS) ? G("frugally") : G("always") : G("never");
 }
 
 
@@ -217,4 +227,56 @@ Preferences::VSync Preferences::VSyncState()
 const string &Preferences::VSyncSetting()
 {
 	return VSYNC_SETTINGS[vsyncIndex];
+}
+
+
+
+void Preferences::ToggleLanguage()
+{
+	const string &langID = Languages::GetLanguageID();
+	const auto &knownLangIDs = Languages::GetKnownLanguageIDs();
+	auto it = find(knownLangIDs.begin(), knownLangIDs.end(), langID);
+	if(it == knownLangIDs.end())
+		Languages::SetLanguageID(*knownLangIDs.begin());
+	else
+	{
+		++it;
+		if(it == knownLangIDs.end())
+			Languages::SetLanguageID(*knownLangIDs.begin());
+		else
+			Languages::SetLanguageID(*it);
+	}
+}
+
+
+
+string Preferences::GetLanguageName()
+{
+	return Languages::GetLanguageName();
+}
+
+
+
+void Preferences::ToggleFullnameFormat()
+{
+	const string &fmt = Languages::GetFullnameFormat();
+	const auto &knownFmts = Languages::GetKnownFullnameFormats();
+	auto it = find(knownFmts.begin(), knownFmts.end(), fmt);
+	if(it == knownFmts.end())
+		Languages::SetFullnameFormat(*knownFmts.begin());
+	else
+	{
+		++it;
+		if(it == knownFmts.end())
+			Languages::SetFullnameFormat(*knownFmts.begin());
+		else
+			Languages::SetFullnameFormat(*it);
+	}
+}
+
+
+
+string Preferences::GetFullnameFormat()
+{
+	return Languages::GetFullnameFormat();
 }

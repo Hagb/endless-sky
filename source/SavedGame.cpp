@@ -17,6 +17,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Date.h"
 #include "text/FontUtilities.h"
 #include "text/Format.h"
+#include "Languages.h"
 #include "SpriteSet.h"
 
 using namespace std;
@@ -42,9 +43,10 @@ void SavedGame::Load(const string &path)
 		if(node.Token(0) == "pilot" && node.Size() >= 3)
 			// Your name has to convert to the escaped text for internal use
 			// because it's saved as raw text to keep compatibility.
-			name = FontUtilities::Escape(node.Token(1) + " " + node.Token(2));
+			name = Languages::GetFullname(FontUtilities::Escape(node.Token(1)),
+				FontUtilities::Escape(node.Token(2)));
 		else if(node.Token(0) == "date" && node.Size() >= 4)
-			date = Date(node.Value(1), node.Value(2), node.Value(3)).ToString();
+			date = Date(node.Value(1), node.Value(2), node.Value(3));
 		else if(node.Token(0) == "system" && node.Size() >= 2)
 			system = node.Token(1);
 		else if(node.Token(0) == "planet" && node.Size() >= 2)
@@ -97,7 +99,7 @@ void SavedGame::Clear()
 	
 	name.clear();
 	credits.clear();
-	date.clear();
+	date = Date();
 	
 	system.clear();
 	planet.clear();
@@ -125,7 +127,7 @@ const string &SavedGame::Credits() const
 
 const string &SavedGame::GetDate() const
 {
-	return date;
+	return date.ToString();
 }
 
 

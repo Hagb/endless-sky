@@ -16,6 +16,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Weapon.h"
 
 #include "Dictionary.h"
+#include "text/Gettext.h"
 
 #include <map>
 #include <string>
@@ -47,11 +48,17 @@ public:
 	void Load(const DataNode &node);
 	bool IsDefined() const;
 	
-	const std::string &Name() const;
+	// n is the number of outfits.
+	std::string Name(unsigned long n = 1) const;
 	void SetName(const std::string &name);
-	const std::string &PluralName() const;
+	std::string PluralName() const;
+	// Get the internal name used for this outfit. This name is unique and
+	// never modified by string translation, so it can be used in condition
+	// variables, etc.
+	const std::string &TrueName() const;
+	
 	const std::string &Category() const;
-	const std::string &Description() const;
+	std::string Description() const;
 	int64_t Cost() const;
 	double Mass() const;
 	// Get the licenses needed to buy or operate this ship.
@@ -100,7 +107,7 @@ private:
 	std::string name;
 	std::string pluralName;
 	std::string category;
-	std::string description;
+	std::vector<Gettext::T_> description;
 	const Sprite *thumbnail = nullptr;
 	int64_t cost = 0;
 	double mass = 0.;

@@ -11,12 +11,17 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 */
 
 #include "Date.h"
+#include "text/Format.h"
+#include "text/Gettext.h"
 
 using namespace std;
+using namespace Gettext;
+
+
 
 namespace {
 	// Figure out the day of the week of the given date.
-	const string &Weekday(int day, int month, int year)
+	int Weekday(int day, int month, int year)
 	{
 		// Zeller's congruence.
 		if(month < 3)
@@ -26,9 +31,76 @@ namespace {
 		}
 		day = (day + (13 * (month + 1)) / 5 + year + year / 4 + 6 * (year / 100) + year / 400) % 7;
 		
-		static const string DAY[] = {"Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"};
-		return DAY[day];
+		return day;
 	}
+	
+	// The day of week.
+	const T_ dayOfWeek[] = {T_("Sat"), T_("Sun"), T_("Mon"), T_("Tue"), T_("Wed"), T_("Thu"), T_("Fri")};
+	// The short name of month.
+	const T_ shortNameOfMonth[] = {
+		T_("???", "short month"),
+		T_("Jan", "short month"),
+		T_("Feb", "short month"),
+		T_("Mar", "short month"),
+		T_("Apr", "short month"),
+		T_("May", "short month"),
+		T_("Jun", "short month"),
+		T_("Jul", "short month"),
+		T_("Aug", "short month"),
+		T_("Sep", "short month"),
+		T_("Oct", "short month"),
+		T_("Nov", "short month"),
+		T_("Dec", "short month"),
+		T_("???", "short month"),
+		T_("???", "short month"),
+		T_("???", "short month"),
+	};
+	// The full name of month.
+	const T_ fullNameOfMonth[] = {
+		T_("???", "full month"),
+		T_("January", "full month"),
+		T_("February", "full month"),
+		T_("March", "full month"),
+		T_("April", "full month"),
+		T_("May", "full month"),
+		T_("June", "full month"),
+		T_("July", "full month"),
+		T_("August", "full month"),
+		T_("September", "full month"),
+		T_("October", "full month"),
+		T_("November", "full month"),
+		T_("December", "full month"),
+		T_("???", "full month"),
+		T_("???", "full month"),
+		T_("???", "full month"),
+	};
+	// The day of the month.
+	const T_ dayOfMonth[] = {
+		T_("???", "Date"),
+		T_("1st"), T_("2nd"), T_("3rd"), T_("4th"), T_("5th"),
+		T_("6th"), T_("7th"), T_("8th"), T_("9th"), T_("10th"),
+		T_("11th"), T_("12th"), T_("13th"), T_("14th"), T_("15th"),
+		T_("16th"), T_("17th"), T_("18th"), T_("19th"), T_("20th"),
+		T_("21st"), T_("22nd"), T_("23rd"), T_("24th"), T_("25th"),
+		T_("26th"), T_("27th"), T_("28th"), T_("29th"), T_("30th"),
+		T_("31st")
+	};
+	// The date format-string.
+	// TRANSLATORS: %1%: day of week, %2%: day, %3%: short month, %4%: year
+	const T_ dateStringFormat = T_("%1%, %2% %3% %4%");
+	// TRANSLATORS: %1%: day,  %2%: full month
+	const T_ dateStringInConversationFormat = T_("%1% of %2%", "Date");
+	const T_ unknown = T_("???", "Date");
+	
+	// Epoch in translating.
+	int epochInTranslating = 0;
+	
+	// The Hook of translation.
+	function<void()> updateCatalog([](){
+		++epochInTranslating;
+	});
+	// Set the hook.
+	volatile bool hooked = AddHookUpdating(&updateCatalog);
 }
 
 
@@ -48,21 +120,19 @@ const string &Date::ToString() const
 {
 	// Because this is a somewhat "costly" operation, cache the result. The
 	// cached value is discarded if the date is changed.
-	if(date && str.empty())
+	if(date && (str.empty() || epoch != epochInTranslating))
 	{
 		int day = Day();
 		int month = Month();
 		int year = Year();
-	
-		str = Weekday(day, month, year);
-		str.append(", ");
-		str.append(to_string(day));
-		str.append(" ");
-		static const string MONTH[] = {
-			"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-		str.append(MONTH[month - 1]);
-		str.append(" ");
-		str.append(to_string(year));
+		int week = Weekday(day, month, year);
+		
+		const string y = to_string(year);
+		const string &m = shortNameOfMonth[month].Str();
+		const string d = to_string(Day());
+		const string &w = dayOfWeek[week].Str();
+		str = Format::StringF(dateStringFormat.Str(), w, d, m, y);
+		epoch = epochInTranslating;
 	}
 	
 	return str;
@@ -76,38 +146,11 @@ string Date::LongString() const
 	if(!date)
 		return string();
 	
-	int day = Day();
-	string result = "the " + to_string(day);
-	// All numbers in the teens add in "th", as do any numbers ending in 0 or in
-	// 4 through 9. Special endings are used for "1st", "2nd", and "3rd."
-	if(day / 10 == 1 || day % 10 == 0 || day % 10 > 3)
-		result += "th";
-	else if(day % 10 == 1)
-		result += "st";
-	else if(day % 10 == 2)
-		result += "nd";
-	else
-		result += "rd";
-	
-	// Write out the month name instead of abbreviating it.
-	result += " of ";
-	static const string MONTH[] = {
-		"January",
-		"February",
-		"March",
-		"April",
-		"May",
-		"June",
-		"July",
-		"August",
-		"September",
-		"October",
-		"November",
-		"December"
-	};
-	result += MONTH[Month() - 1];
-	
-	return result;
+	const size_t m = Month();
+	const string &month = fullNameOfMonth[m].Str();
+	const size_t d = Day();
+	const string &day = dayOfMonth[d].Str();
+	return Format::StringF(dateStringInConversationFormat.Str(), day, month);
 }
 
 

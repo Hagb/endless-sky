@@ -14,6 +14,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include "text/Format.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Government.h"
 #include "Planet.h"
 #include "PlayerInfo.h"
@@ -25,6 +26,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <cmath>
 
 using namespace std;
+using namespace Gettext;
 
 
 
@@ -210,7 +212,11 @@ string Politics::Fine(PlayerInfo &player, const Government *gov, int scan, const
 	if(fined.count(gov) || Random::Real() > security || !gov->GetFineFraction())
 		return "";
 	
+	// illegalCargoMessage and "for ..." are set into the different variables,
+	// because "for ..." and illegalCargoMessage have the different location in
+	// the sentence in some languages.
 	string reason;
+	string reason2;
 	int64_t maxFine = 0;
 	for(const shared_ptr<Ship> &ship : player.Ships())
 	{
@@ -230,7 +236,7 @@ string Politics::Fine(PlayerInfo &player, const Government *gov, int scan, const
 			if((fine > maxFine && maxFine >= 0) || fine < 0)
 			{
 				maxFine = fine;
-				reason = " for carrying illegal cargo.";
+				reason = T(" for carrying illegal cargo.");
 
 				for(const Mission &mission : player.Missions())
 				{
@@ -241,8 +247,9 @@ string Politics::Fine(PlayerInfo &player, const Government *gov, int scan, const
 					string illegalCargoMessage = mission.IllegalCargoMessage();
 					if(!illegalCargoMessage.empty())
 					{
-						reason = ".\n\t";
-						reason.append(illegalCargoMessage);
+						reason.clear();
+						reason2 = T(".\n\t", "prefix of illegal cargo message");
+						reason2.append(illegalCargoMessage);
 					}
 					// Fail any missions with illegal cargo and "Stealth" set
 					if(mission.IllegalCargoFine() > 0 && mission.FailIfDiscovered())
@@ -264,7 +271,8 @@ string Politics::Fine(PlayerInfo &player, const Government *gov, int scan, const
 					if((fine > maxFine && maxFine >= 0) || fine < 0)
 					{
 						maxFine = fine;
-						reason = " for having illegal outfits installed on your ship.";
+						reason2.clear();
+						reason = T(" for having illegal outfits installed on your ship.");
 					}
 				}
 		}
@@ -281,16 +289,16 @@ string Politics::Fine(PlayerInfo &player, const Government *gov, int scan, const
 		if(!scan)
 			reason = "atrocity";
 		else
-			reason = "After scanning your ship, the " + gov->GetName()
-				+ " captain hails you with a grim expression on his face. He says, "
-				"\"I'm afraid we're going to have to put you to death " + reason + " Goodbye.\"";
+			reason = Format::StringF(T("After scanning your ship, the %1% captain "
+				"hails you with a grim expression on his face. He says, \"I'm afraid "
+				"we're going to have to put you to death%2%%3% Goodbye.\""), gov->GetName(), reason, reason2);
 	}
 	else if(maxFine > 0)
 	{
 		// Scale the fine based on how lenient this government is.
 		maxFine = lround(maxFine * gov->GetFineFraction());
-		reason = "The " + gov->GetName() + " authorities fine you "
-			+ Format::Credits(maxFine) + " credits" + reason;
+		reason = Format::StringF(T("The %1% authorities fine you %2% credits%3%%4%"),
+			gov->GetName(), Format::Credits(maxFine), reason, reason2);
 		player.Accounts().AddFine(maxFine);
 		fined.insert(gov);
 	}

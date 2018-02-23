@@ -18,11 +18,14 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/FontSet.h"
 #include "text/Format.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Information.h"
 #include "Interface.h"
 #include "text/layout.hpp"
+#include "Languages.h"
 #include "LogbookPanel.h"
 #include "MissionPanel.h"
+#include "Planet.h"
 #include "PlayerInfo.h"
 #include "Preferences.h"
 #include "Rectangle.h"
@@ -38,6 +41,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <utility>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	// Number of lines per page of the fleet listing.
@@ -46,7 +50,9 @@ namespace {
 	// Find any condition strings that begin with the given prefix, and convert
 	// them to strings ending in the given suffix (if any). Return those strings
 	// plus the values of the conditions.
-	vector<pair<int64_t, string>> Match(const PlayerInfo &player, const string &prefix, const string &suffix)
+	// The conv function may translate the string.
+	vector<pair<int64_t, string>> Match(const PlayerInfo &player, const string &prefix,
+		const string &suffix, string (*conv)(const string&))
 	{
 		vector<pair<int64_t, string>> match;
 		
@@ -56,7 +62,7 @@ namespace {
 			if(it->first.compare(0, prefix.length(), prefix))
 				break;
 			if(it->second > 0)
-				match.emplace_back(it->second, it->first.substr(prefix.length()) + suffix);
+				match.emplace_back(it->second, conv(it->first.substr(prefix.length()) + suffix));
 		}
 		return match;
 	}
@@ -71,7 +77,7 @@ namespace {
 		
 		if(otherCount > 0 && maxCount > 0)
 		{
-			list[maxCount - 1].second = "(" + to_string(otherCount + 1) + " Others)";
+			list[maxCount - 1].second = Format::StringF(T("(%1% Others)"), to_string(otherCount + 1));
 			while(otherCount--)
 			{
 				list[maxCount - 1].first += list.back().first;
@@ -489,9 +495,10 @@ void PlayerInfoPanel::DrawPlayer(const Rectangle &bounds)
 	table.SetUnderline(0, columnWidth);
 	table.DrawAt(bounds.TopLeft() + Point(10., 8.));
 	
-	table.DrawTruncatedPair("player:", dim, player.FirstName() + " " + player.LastName(),
-		bright, Truncate::MIDDLE, true);
-	table.DrawTruncatedPair("net worth:", dim, Format::Credits(player.Accounts().NetWorth()) + " credits",
+	const string fullname = Languages::GetFullname(player.FirstName(), player.LastName());
+	table.DrawTruncatedPair(T("player:"), dim, fullname, bright, Truncate::MIDDLE, true);
+	table.DrawTruncatedPair(T("net worth:"), dim,
+		Format::Credits(player.Accounts().NetWorth()) + T(" credits", "PlayerInfoPanel"),
 		bright, Truncate::MIDDLE, true);
 	
 	// Determine the player's combat rating.
@@ -501,7 +508,7 @@ void PlayerInfoPanel::DrawPlayer(const Rectangle &bounds)
 	{
 		table.DrawGap(10);
 		table.DrawUnderline(dim);
-		table.Draw("combat rating:", bright);
+		table.Draw(T("combat rating:"), bright);
 		table.Advance();
 		table.DrawGap(5);
 		
@@ -522,29 +529,32 @@ void PlayerInfoPanel::DrawPlayer(const Rectangle &bounds)
 		
 		table.DrawGap(10);
 		table.DrawUnderline(dim);
-		table.Draw("piracy threat:", bright);
+		table.Draw(T("piracy threat:"), bright);
 		table.Draw(to_string(lround(100 * prob)) + "%", dim);
 		table.DrawGap(5);
 		
 		// Format the attraction and deterrence levels with tens places, so it
 		// is clear which is higher even if they round to the same level.
-		table.DrawTruncatedPair("cargo: " + attractionRating, dim,
+		table.DrawTruncatedPair(T("cargo: ") + attractionRating, dim,
 			"(+" + Format::Decimal(attractionLevel, 1) + ")", dim, Truncate::MIDDLE, false);
-		table.DrawTruncatedPair("fleet: " + deterrenceRating, dim,
+		table.DrawTruncatedPair(T("fleet: ") + deterrenceRating, dim,
 			"(-" + Format::Decimal(deterrenceLevel, 1) + ")", dim, Truncate::MIDDLE, false);
 	}
 	// Other special information:
-	auto salary = Match(player, "salary: ", "");
+	auto ConditionNameOfSalary = [](const string &s) -> string { return T(s, "salary: "); };
+	auto salary = Match(player, "salary: ", "", ConditionNameOfSalary);
 	sort(salary.begin(), salary.end());
-	DrawList(salary, table, "salary:", 4);
+	DrawList(salary, table, T("salary:"), 4);
 	
-	auto tribute = Match(player, "tribute: ", "");
+	auto DisplayNameOfPlanet = [](const string &s) -> string { return GameData::Planets().Get(s)->Name(); };
+	auto tribute = Match(player, "tribute: ", "", DisplayNameOfPlanet);
 	sort(tribute.begin(), tribute.end());
-	DrawList(tribute, table, "tribute:", 4);
+	DrawList(tribute, table, T("tribute:"), 4);
 	
 	int maxRows = static_cast<int>(250. - 30. - table.GetPoint().Y()) / 20;
-	auto licenses = Match(player, "license: ", " License");
-	DrawList(licenses, table, "licenses:", maxRows, false);
+	auto ConditionNameOfLicense = [](const string &s) -> string { return T(s, "license: "); };
+	auto licenses = Match(player, "license: ", " License", ConditionNameOfLicense);
+	DrawList(licenses, table, T("licenses:"), maxRows, false);
 }
 
 
@@ -578,13 +588,13 @@ void PlayerInfoPanel::DrawFleet(const Rectangle &bounds)
 	// Header row.
 	table.DrawUnderline(dim);
 	table.SetColor(bright);
-	table.Draw("ship");
-	table.Draw("model");
-	table.Draw("system");
-	table.Draw("shields");
-	table.Draw("hull");
-	table.Draw("fuel");
-	table.Draw("crew");
+	table.Draw(T("ship", "PlayerInfoPanel HEADER"));
+	table.Draw(T("model", "PlayerInfoPanel HEADER"));
+	table.Draw(T("system", "PlayerInfoPanel HEADER"));
+	table.Draw(T("shields", "PlayerInfoPanel HEADER"));
+	table.Draw(T("hull", "PlayerInfoPanel HEADER"));
+	table.Draw(T("fuel", "PlayerInfoPanel HEADER"));
+	table.Draw(T("crew", "PlayerInfoPanel HEADER"));
 	table.DrawGap(5);
 	
 	// Loop through all the player's ships.
@@ -632,7 +642,7 @@ void PlayerInfoPanel::DrawFleet(const Rectangle &bounds)
 		int crewCount = ship.Crew();
 		if(&ship != player.Flagship())
 			crewCount = min(crewCount, ship.RequiredCrew());
-		string crew = (ship.IsParked() ? "Parked" : to_string(crewCount));
+		string crew = (ship.IsParked() ? T("Parked") : to_string(crewCount));
 		table.Draw(crew);
 		
 		++index;

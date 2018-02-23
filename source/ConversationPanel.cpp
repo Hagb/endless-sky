@@ -17,14 +17,15 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Color.h"
 #include "Command.h"
 #include "Conversation.h"
-#include "text/DisplayText.h"
 #include "FillShader.h"
 #include "text/Font.h"
 #include "text/FontSet.h"
 #include "text/FontUtilities.h"
 #include "text/Format.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Government.h"
+#include "Languages.h"
 #include "MapDetailPanel.h"
 #include "PlayerInfo.h"
 #include "Point.h"
@@ -44,6 +45,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <iterator>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 #if defined _WIN32
@@ -68,6 +70,7 @@ ConversationPanel::ConversationPanel(PlayerInfo &player, const Conversation &con
 	// text is prepared for display.
 	subs["<first>"] = player.FirstName();
 	subs["<last>"] = player.LastName();
+	subs["<fullname>"] = Languages::GetFullname(player.FirstName(), player.LastName());
 	if(ship)
 		subs["<ship>"] = ship->Name();
 	else if(player.Flagship())
@@ -126,11 +129,11 @@ void ConversationPanel::Draw()
 	if(node < 0)
 	{
 		// The conversation has already ended. Draw a "done" button.
-		static const string done = "[done]";
-		int width = font.Width(done);
+		static const T_ done = T_("[done]");
+		int width = font.Width(done.Str());
 		int height = font.Height();
 		Point off(Screen::Left() + MARGIN + WIDTH - width, point.Y());
-		font.Draw(done, off, bright);
+		font.Draw(done.Str(), off, bright);
 		
 		// Handle clicks on this button.
 		AddZone(Rectangle::FromCorner(off, Point(width, height)), [this](){ this->Exit(); });
@@ -160,18 +163,18 @@ void ConversationPanel::Draw()
 			FillShader::Fill(center, Point(1., 16.), dim);
 		}
 		
-		font.Draw("First name:", point + Point(40, 0), dim);
+		font.Draw(T("First name:"), point + Point(40, 0), dim);
 		font.Draw(escapedFirstName, point + Point(120, 0), choice ? grey : bright);
 		
-		font.Draw("Last name:", point + Point(270, 0), dim);
+		font.Draw(T("Last name:"), point + Point(270, 0), dim);
 		font.Draw(escapedLastName, point + Point(350, 0), choice ? bright : grey);
 		
 		// Draw the OK button, and remember its location.
-		static const string ok = "[ok]";
-		int width = font.Width(ok);
+		static const T_ ok = T_("[ok]");
+		int width = font.Width(ok.Str());
 		int height = font.Height();
 		Point off(Screen::Left() + MARGIN + WIDTH - width, point.Y());
-		font.Draw(ok, off, bright);
+		font.Draw(ok.Str(), off, bright);
 
 		// Handle clicks on this button.
 		AddZone(Rectangle::FromCorner(off, Point(width, height)), SDLK_RETURN);
@@ -253,9 +256,10 @@ bool ConversationPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &comm
 			player.SetName(firstName, lastName);
 			subs["<first>"] = player.FirstName();
 			subs["<last>"] = player.LastName();
+			subs["<fullname>"] = Languages::GetFullname(player.FirstName(), player.LastName());
 			
 			// Display the name the player entered.
-			string name = "\t\tName: " + player.FirstName() + " " + player.LastName() + ".\n";
+			string name = Format::StringF(T("\t\tName: %1% %2%.\n"), player.FirstName(), player.LastName());
 			text.emplace_back(name);
 			
 			Goto(node + 1);

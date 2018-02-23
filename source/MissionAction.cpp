@@ -20,6 +20,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/Format.h"
 #include "GameData.h"
 #include "GameEvent.h"
+#include "Languages.h"
 #include "Messages.h"
 #include "Outfit.h"
 #include "PlayerInfo.h"
@@ -30,41 +31,42 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <cstdlib>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
+	// TRANSLATORS: This "vowel" determines whether 'A' or 'An' is used.
+	const T_ vowel = T_("aeiou", "MissionAction");
+	// TRANSLATORS: Indefinite article of an outfit.
+	const T_ indefiniteArticle[2] = { T_("A"), T_("An") };
+	
+	
 	void DoGift(PlayerInfo &player, const Ship *model, const string &name)
 	{
 		if(model->ModelName().empty())
 			return;
 		
 		player.BuyShip(model, name, true);
-		Messages::Add("The " + model->ModelName() + " \"" + name + "\" was added to your fleet.");
+		Messages::Add(Format::StringF(T("The %1% \"%2%\" was added to your fleet."), model->ModelName(), name));
 	}
 	
 	void DoGift(PlayerInfo &player, const Outfit *outfit, int count, UI *ui)
 	{
 		Ship *flagship = player.Flagship();
-		bool isSingle = (abs(count) == 1);
-		string nameWas = (isSingle ? outfit->Name() : outfit->PluralName());
-		if(!flagship || !count || nameWas.empty())
+		unsigned long number = abs(count);
+		string name = outfit->Name(number);
+		if(!flagship || !count || name.empty())
 			return;
 		
-		nameWas += (isSingle ? " was" : " were");
-		string message;
-		if(isSingle)
+		bool isVowel = false;
+		for(const auto c : vowel.Str())
 		{
-			char c = tolower(nameWas.front());
-			bool isVowel = (c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u');
-			message = (isVowel ? "An " : "A ");
+			isVowel = c == tolower(name.front());
+			if(isVowel)
+				break;
 		}
-		else
-			message = to_string(abs(count)) + " ";
-		
-		message += nameWas;
-		if(count > 0)
-			message += " added to your ";
-		else
-			message += " removed from your ";
+		const string a = isVowel ? indefiniteArticle[1].Str() : indefiniteArticle[0].Str();
+		const string numStr = to_string(number);
+		const string addOrRemove = count > 0 ? T("added to your") : T("removed from your");
 		
 		bool didCargo = false;
 		bool didShip = false;
@@ -100,19 +102,21 @@ namespace {
 			didCargo = true;
 			if(ui)
 			{
-				string special = "The " + nameWas;
-				special += " put in your cargo hold because there is not enough space to install ";
-				special += (isSingle ? "it" : "them");
-				special += " in your ship.";
+				const string special = Format::StringF(T("The %1% %2% put in your cargo hold because "
+					"there is not enough space to install %3% in your ship."),
+					name, nT("was", "were", number), nT("it", "them", number));
 				ui->Push(new Dialog(special));
 			}
 		}
+		string place;
 		if(didCargo && didShip)
-			message += "cargo hold and your flagship.";
+			place = T("cargo hold and your flagship.");
 		else if(didCargo)
-			message += "cargo hold.";
+			place = T("cargo hold.");
 		else
-			message += "flagship.";
+			place = T("flagship.");
+		const string message = Format::StringF(nT("%1% %3% was %4% %5%", "%2% %3% were %4% %5%", number),
+			a, numStr, name, addOrRemove, place);
 		Messages::Add(message);
 	}
 	
@@ -151,6 +155,7 @@ MissionAction::MissionAction(const DataNode &node, const string &missionName)
 
 void MissionAction::Load(const DataNode &node, const string &missionName)
 {
+	const string context("mission: " + missionName);
 	if(node.Size() >= 2)
 		trigger = node.Token(1);
 	if(node.Size() >= 3)
@@ -164,7 +169,7 @@ void MissionAction::Load(const DataNode &node, const string &missionName)
 		if(key == "log")
 		{
 			bool isSpecial = (child.Size() >= 3);
-			string &text = (isSpecial ?
+			vector<T_> &text = (isSpecial ?
 				specialLogText[child.Token(1)][child.Token(2)] : logText);
 			Dialog::ParseTextNode(child, isSpecial ? 3 : 1, text);
 		}
@@ -191,7 +196,7 @@ void MissionAction::Load(const DataNode &node, const string &missionName)
 				Dialog::ParseTextNode(child, 1, dialogText);
 		}
 		else if(key == "conversation" && child.HasChildren())
-			conversation.Load(child);
+			conversation.Load(child, context);
 		else if(key == "conversation" && hasValue)
 			stockConversation = GameData::Conversations().Get(child.Token(1));
 		else if(key == "give" && hasValue)
@@ -263,6 +268,8 @@ void MissionAction::Load(const DataNode &node, const string &missionName)
 // a template, so it only has to save a subset of the data.
 void MissionAction::Save(DataWriter &out) const
 {
+	const string sep = T("\n\t", "dialog paragraph separator");
+	
 	if(system.empty())
 		out.Write("on", trigger);
 	else
@@ -275,13 +282,13 @@ void MissionAction::Save(DataWriter &out) const
 			// LocationFilter indentation is handled by its Save method.
 			systemFilter.Save(out);
 		}
-		if(!logText.empty())
+		if(!IsEmptyText(logText))
 		{
 			out.Write("log");
 			out.BeginChild();
 			{
 				// Break the text up into paragraphs.
-				for(const string &line : Format::Split(logText, "\n\t"))
+				for(const string &line : Format::Split(Concat(logText), sep))
 					out.Write(line);
 			}
 			out.EndChild();
@@ -293,18 +300,18 @@ void MissionAction::Save(DataWriter &out) const
 				out.BeginChild();
 				{
 					// Break the text up into paragraphs.
-					for(const string &line : Format::Split(eit.second, "\n\t"))
+					for(const string &line : Format::Split(Concat(eit.second), sep))
 						out.Write(line);
 				}
 				out.EndChild();
 			}
-		if(!dialogText.empty())
+		if(!IsEmptyText(dialogText))
 		{
 			out.Write("dialog");
 			out.BeginChild();
 			{
 				// Break the text up into paragraphs.
-				for(const string &line : Format::Split(dialogText, "\n\t"))
+				for(const string &line : Format::Split(Concat(dialogText), sep))
 					out.Write(line);
 			}
 			out.EndChild();
@@ -313,11 +320,11 @@ void MissionAction::Save(DataWriter &out) const
 			conversation.Save(out);
 		
 		for(const auto &it : giftShips)
-			out.Write("give", "ship", it.first->VariantName(), it.second);
+			out.Write("give", "ship", it.first->VariantTrueName(), it.second);
 		for(const auto &it : giftOutfits)
-			out.Write("outfit", it.first->Name(), it.second);
+			out.Write("outfit", it.first->TrueName(), it.second);
 		for(const auto &it : requiredOutfits)
-			out.Write("require", it.first->Name(), it.second);
+			out.Write("require", it.first->TrueName(), it.second);
 		if(payment)
 			out.Write("payment", payment);
 		for(const auto &it : events)
@@ -384,9 +391,9 @@ int MissionAction::Payment() const
 
 
 
-const string &MissionAction::DialogText() const
+string MissionAction::DialogText() const
 {
-	return dialogText;
+	return Concat(dialogText);
 }
 
 
@@ -474,14 +481,15 @@ void MissionAction::Do(PlayerInfo &player, UI *ui, const System *destination, co
 			panel->SetCallback(&player, &PlayerInfo::BasicCallback);
 		ui->Push(panel);
 	}
-	else if(!dialogText.empty() && ui)
+	else if(!IsEmptyText(dialogText) && ui)
 	{
 		map<string, string> subs;
 		subs["<first>"] = player.FirstName();
 		subs["<last>"] = player.LastName();
+		subs["<fullname>"] = Languages::GetFullname(player.FirstName(), player.LastName());
 		if(player.Flagship())
 			subs["<ship>"] = player.Flagship()->Name();
-		string text = Format::Replace(dialogText, subs);
+		const string text = Format::Replace(Concat(dialogText), subs);
 		
 		// Don't push the dialog text if this is a visit action on a nonunique
 		// mission; on visit, nonunique dialogs are handled by PlayerInfo as to
@@ -496,11 +504,11 @@ void MissionAction::Do(PlayerInfo &player, UI *ui, const System *destination, co
 	else if(isOffer && ui)
 		player.MissionCallback(Conversation::ACCEPT);
 	
-	if(!logText.empty())
-		player.AddLogEntry(logText);
+	if(!IsEmptyText(logText))
+		player.AddLogEntry(Concat(logText));
 	for(const auto &it : specialLogText)
 		for(const auto &eit : it.second)
-			player.AddSpecialLog(it.first, eit.first, eit.second);
+			player.AddSpecialLog(it.first, eit.first, Concat(eit.second));
 	
 	for(const auto &it : giftShips)
 		DoGift(player, it.first, it.second);
@@ -561,21 +569,22 @@ MissionAction MissionAction::Instantiate(map<string, string> &subs, const System
 	// Fill in the payment amount if this is the "complete" action.
 	string previousPayment = subs["<payment>"];
 	if(result.payment)
-		subs["<payment>"] = Format::Credits(abs(result.payment))
-			+ (result.payment == 1 ? " credit" : " credits");
+	{
+		const uint64_t absPayment = abs(result.payment);
+		subs["<payment>"] = Format::StringF(nT("%1% credit", "%1% credits", absPayment), Format::Credits(absPayment));
+	}
 	
-	if(!logText.empty())
-		result.logText = Format::Replace(logText, subs);
+	result.logText = vector<T_>{Tx(Format::Replace(Concat(logText), subs))};
 	for(const auto &it : specialLogText)
 		for(const auto &eit : it.second)
-			result.specialLogText[it.first][eit.first] = Format::Replace(eit.second, subs);
+			result.specialLogText[it.first][eit.first] = vector<T_>{Tx(Format::Replace(Concat(eit.second), subs))};
 	
 	// Create any associated dialog text from phrases, or use the directly specified text.
 	string dialogText = stockDialogPhrase ? stockDialogPhrase->Get()
 		: (!dialogPhrase.Name().empty() ? dialogPhrase.Get()
-		: this->dialogText);
+		: Concat(this->dialogText));
 	if(!dialogText.empty())
-		result.dialogText = Format::Replace(dialogText, subs);
+		result.dialogText = vector<T_>{Tx(Format::Replace(dialogText, subs))};
 	
 	if(stockConversation)
 		result.conversation = stockConversation->Substitute(subs);

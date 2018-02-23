@@ -94,7 +94,7 @@ public:
 	
 	// Get the description or keycode name for this command. If this command is
 	// a combination of more than one command, an empty string is returned.
-	const std::string &Description() const;
+	std::string Description() const;
 	const std::string &KeyName() const;
 	bool HasConflict() const;
 	

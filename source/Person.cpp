@@ -14,11 +14,37 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include "DataNode.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Government.h"
 #include "Ship.h"
 #include "System.h"
 
 using namespace std;
+using namespace Gettext;
+
+namespace {
+	// List of all instances need to translate.
+	set<Person*> &GetListOfTranslating()
+	{
+		static set<Person*> *listOfTranslating(new set<Person*>);
+		return *listOfTranslating;
+	}
+	
+	// The Hook of translation.
+	function<void()> updateCatalog([](){
+		for(auto it : GetListOfTranslating())
+			it->UpdateTranslation();
+	});
+	// Set the hook.
+	volatile bool hooked = AddHookUpdating(&updateCatalog);
+}
+
+
+
+Person::~Person() noexcept
+{
+	GetListOfTranslating().erase(this);
+}
 
 
 
@@ -37,7 +63,9 @@ void Person::Load(const DataNode &node)
 			bool setName = !ships.empty() && child.Size() >= 3;
 			ships.emplace_back(new Ship(child));
 			if(setName)
-				ships.back()->SetName(child.Token(2));
+				originalShipNames.push_back(child.Token(2));
+			else
+				originalShipNames.emplace_back("");
 		}
 		else if(child.Token(0) == "government" && child.Size() >= 2)
 			government = GameData::Governments().Get(child.Token(1));
@@ -48,6 +76,10 @@ void Person::Load(const DataNode &node)
 		else
 			child.PrintTrace("Skipping unrecognized attribute:");
 	}
+	
+	UpdateTranslation();
+	if(IsTranslating())
+		GetListOfTranslating().insert(this);
 }
 
 
@@ -155,4 +187,17 @@ void Person::ClearPlacement()
 {
 	if(!IsDestroyed())
 		Restore();
+}
+
+
+
+void Person::UpdateTranslation()
+{
+	auto name = originalShipNames.begin();
+	for(auto &ship : ships)
+	{
+		if(!name->empty())
+			ship->SetName(T(*name, "ship"));
+		++name;
+	}
 }

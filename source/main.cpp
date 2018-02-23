@@ -384,6 +384,7 @@ Conversation LoadConversation()
 		{"<destination>", "[Planet in the Star system]"},
 		{"<fare>", "[N passengers]"},
 		{"<first>", "[First]"},
+		{"<fullname>", "[Fullname]"},
 		{"<last>", "[Last]"},
 		{"<origin>", "[Origin Planet]"},
 		{"<passengers>", "[your passengers]"},

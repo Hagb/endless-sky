@@ -35,6 +35,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <cmath>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	const int WIDTH = 250;
@@ -144,7 +145,7 @@ void Dialog::Draw()
 	const Color &back = *GameData::Colors().Get("faint");
 	if(canCancel)
 	{
-		string cancelText = isMission ? "Decline" : "Cancel";
+		string cancelText = isMission ? T("Decline") : T("Cancel");
 		cancelPos = pos + Point(10., 0.);
 		SpriteShader::Draw(cancel, cancelPos);
 		Point labelPos(
@@ -152,7 +153,7 @@ void Dialog::Draw()
 			cancelPos.Y() - .5 * font.Height());
 		font.Draw(cancelText, labelPos, !okIsActive ? bright : dim);
 	}
-	string okText = isMission ? "Accept" : "OK";
+	string okText = isMission ? T("Accept") : T("OK");
 	okPos = pos + Point(90., 0.);
 	Point labelPos(
 		okPos.X() - .5 * font.Width(okText),
@@ -182,20 +183,20 @@ void Dialog::Draw()
 
 
 // Format and add the text from the given node to the given string.
-void Dialog::ParseTextNode(const DataNode &node, size_t startingIndex, string &text)
+void Dialog::ParseTextNode(const DataNode &node, size_t startingIndex, std::vector<Gettext::T_> &text)
 {
 	for(int i = startingIndex; i < node.Size(); ++i)
 	{
-		if(!text.empty())
-			text += "\n\t";
-		text += node.Token(i);
+		if(!IsEmptyText(text))
+			text.push_back(T_("\n\t", "dialog paragraph separator"));
+		text.emplace_back(node.Token(i));
 	}
 	for(const DataNode &child : node)
 		for(int i = 0; i < child.Size(); ++i)
 		{
-			if(!text.empty())
-				text += "\n\t";
-			text += child.Token(i);
+			if(!IsEmptyText(text))
+				text.push_back(T_("\n\t", "dialog paragraph separator"));
+			text.emplace_back(child.Token(i));
 		}
 }
 

@@ -14,6 +14,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #define INTERFACE_H_
 
 #include "Color.h"
+#include "text/Gettext.h"
 #include "Point.h"
 #include "Rectangle.h"
 #include "text/truncate.hpp"
@@ -164,7 +165,7 @@ private:
 	
 	private:
 		// The string may either be a name of a dynamic string, or static text.
-		std::string str;
+		Gettext::T_ str;
 		// Color for inactive, active, and hover states.
 		const Color *color[3] = {nullptr, nullptr, nullptr};
 		int fontSize = 14;

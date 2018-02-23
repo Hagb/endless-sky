@@ -22,6 +22,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/Format.h"
 #include "GameData.h"
 #include "Government.h"
+#include "text/Gettext.h"
 #include "Phrase.h"
 #include "Planet.h"
 #include "PlayerInfo.h"
@@ -38,6 +39,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 class System;
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	// The name entry dialog should include a "Random" button to choose a random
@@ -55,7 +57,7 @@ namespace {
 			SpriteShader::Draw(SpriteSet::Get("ui/dialog cancel"), randomPos);
 
 			const Font &font = FontSet::Get(14);
-			static const string label = "Random";
+			const string label = T("Random");
 			Point labelPos = randomPos - .5 * Point(font.Width(label), font.Height());
 			font.Draw(label, labelPos, *GameData::Colors().Get("medium"));
 		}
@@ -75,6 +77,18 @@ namespace {
 	private:
 		Point randomPos;
 	};
+	
+	
+	
+	// The format string for list of ships
+	Format::ListOfWords listOfShips;
+	
+	// The Hook of translation.
+	function<void()> updateCatalog([](){
+		listOfShips.SetSeparators(T(": and :,\n:,\nand ", "separator of ships"));
+	});
+	// Set the hook.
+	volatile bool hooked = AddHookUpdating(&updateCatalog);
 }
 
 
@@ -145,7 +159,7 @@ int ShipyardPanel::DetailWidth() const
 
 int ShipyardPanel::DrawDetails(const Point &center)
 {
-	string selectedItem = "No Ship Selected";
+	string selectedItem = T("No Ship Selected");
 	const Font &font = FontSet::Get(14);
 	const Color &bright = *GameData::Colors().Get("bright");
 	const Color &dim = *GameData::Colors().Get("medium");
@@ -180,7 +194,7 @@ int ShipyardPanel::DrawDetails(const Point &center)
 		}
 		else
 		{
-			std::string label = "description";
+			std::string label = T("description");
 			font.Draw(label, startPoint + Point(35., 12.), dim);
 			SpriteShader::Draw(collapsedArrow, startPoint + Point(20., 20.));
 		}
@@ -250,16 +264,14 @@ void ShipyardPanel::Buy(bool alreadyOwned)
 	modifier = Modifier();
 	string message;
 	if(licenseCost)
-		message = "Note: you will need to pay " + Format::Credits(licenseCost)
-			+ " credits for the licenses required to operate this ship, in addition to its cost."
-			" If that is okay with you, go ahead and enter a name for your brand new ";
+		message = Format::StringF(T("Note: you will need to pay %1% credits for "
+			"the licenses required to operate this ship, in addition to its cost."
+			" If that is okay with you, go ahead and enter a name for your brand new %2%!"),
+			Format::Credits(licenseCost), selectedShip->ModelName(modifier));
 	else
-		message = "Enter a name for your brand new ";
-	
-	if(modifier == 1)
-		message += selectedShip->ModelName() + "! (Or leave it blank to use a randomly chosen name.)";
-	else
-		message += selectedShip->PluralModelName() + "! (Or leave it blank to use randomly chosen names.)";
+		message = Format::StringF(T("Enter a name for your brand new %1%!"), selectedShip->ModelName(modifier));
+	message += nT(" (Or leave it blank to use a randomly chosen name.)",
+		"(Or leave it blank to use randomly chosen names.)", modifier);
 	
 	GetUI()->Push(new NameDialog(this, &ShipyardPanel::BuyShip, message));
 }
@@ -277,8 +289,8 @@ void ShipyardPanel::FailBuy() const
 	int64_t licenseCost = LicenseCost(&selectedShip->Attributes());
 	if(licenseCost < 0)
 	{
-		GetUI()->Push(new Dialog("Buying this ship requires a special license. "
-			"You will probably need to complete some sort of mission to get one."));
+		GetUI()->Push(new Dialog(T("Buying this ship requires a special license. "
+			"You will probably need to complete some sort of mission to get one.")));
 		return;
 	}
 	
@@ -288,14 +300,12 @@ void ShipyardPanel::FailBuy() const
 		for(const auto &it : player.Ships())
 			cost -= player.FleetDepreciation().Value(*it, day);
 		if(player.Accounts().Credits() < cost)
-			GetUI()->Push(new Dialog("You do not have enough credits to buy this ship. "
-				"Consider checking if the bank will offer you a loan."));
+			GetUI()->Push(new Dialog(T("You do not have enough credits to buy this ship. "
+				"Consider checking if the bank will offer you a loan.")));
 		else
-		{
-			string ship = (player.Ships().size() == 1) ? "your current ship" : "one of your ships";
-			GetUI()->Push(new Dialog("You do not have enough credits to buy this ship. "
-				"If you want to buy it, you must sell " + ship + " first."));
-		}
+			GetUI()->Push(new Dialog(Format::StringF(T("You do not have enough credits to buy this ship. "
+				"If you want to buy it, you must sell %1% first."),
+				nT("your current ship", "one of your ships", player.Ships().size()))));
 		return;
 	}
 }
@@ -313,36 +323,20 @@ void ShipyardPanel::Sell(bool toStorage)
 {
 	static const int MAX_LIST = 20;
 	
-	int count = playerShips.size();
-	int initialCount = count;
-	string message = "Sell the ";
-	if(count == 1)
-		message += playerShip->Name();
-	else if(count <= MAX_LIST)
-	{
-		auto it = playerShips.begin();
-		message += (*it++)->Name();
-		--count;
-		
-		if(count == 1)
-			message += " and ";
-		else
+	const int count = playerShips.size();
+	vector<string> shipNames;
+	auto it = playerShips.begin();
+	for(int i = 0; i < count; ++i)
+		if(i == MAX_LIST - 1 && count > MAX_LIST)
 		{
-			while(count-- > 1)
-				message += ",\n" + (*it++)->Name();
-			message += ",\nand ";
+			const unsigned long otherCount = count - (MAX_LIST - 1);
+			shipNames.push_back(Format::StringF(nT("%1% other ship", "%1% other ships", otherCount),
+				Format::Number(otherCount)));
+			break;
 		}
-		message += (*it)->Name();
-	}
-	else
-	{
-		auto it = playerShips.begin();
-		message += (*it++)->Name() + ",\n";
-		for(int i = 1; i < MAX_LIST - 1; ++i)
-			message += (*it++)->Name() + ",\n";
-		
-		message += "and " + to_string(count - (MAX_LIST - 1)) + " other ships";
-	}
+		else
+			shipNames.push_back((*it++)->Name());
+	
 	// To allow calculating the sale price of all the ships in the list,
 	// temporarily copy into a shared_ptr vector:
 	vector<shared_ptr<Ship>> toSell;
@@ -350,10 +344,13 @@ void ShipyardPanel::Sell(bool toStorage)
 		toSell.push_back(it->shared_from_this());
 	int64_t total = player.FleetDepreciation().Value(toSell, day);
 	
-	const bool lineBreaking = initialCount > 2;
-	const string separator(lineBreaking ? "\nfor " : " for ");
+	const bool lineBreaking = count > 2;
+	const string separator(lineBreaking ? T("\n") : T(" ", "ShipyardPanel"));
 	const Truncate truncation = lineBreaking ? Truncate::MIDDLE : Truncate::NONE;
-	message += separator + Format::Credits(total) + " credits?";
+	auto it2 = shipNames.begin();
+	const string message = Format::StringF(T("Sell the %1%%2%for %3% credits?"),
+		listOfShips.GetList(shipNames.size(), [&it2](){ return *it2++; }),
+		separator, Format::Credits(total));
 	GetUI()->Push(new Dialog(this, &ShipyardPanel::SellShip, message, truncation));
 }
 

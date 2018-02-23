@@ -131,12 +131,12 @@ void GameEvent::Save(DataWriter &out) const
 		conditionsToApply.Save(out);
 		
 		for(auto &&system : systemsToUnvisit)
-			out.Write("unvisit", system->Name());
+			out.Write("unvisit", system->TrueName());
 		for(auto &&planet : planetsToUnvisit)
 			out.Write("unvisit planet", planet->TrueName());
 		
 		for(auto &&system : systemsToVisit)
-			out.Write("visit", system->Name());
+			out.Write("visit", system->TrueName());
 		for(auto &&planet : planetsToVisit)
 			out.Write("visit planet", planet->TrueName());
 		

@@ -13,6 +13,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #ifndef PLANET_H_
 #define PLANET_H_
 
+#include "text/Gettext.h"
 #include "Sale.h"
 
 #include <list>
@@ -47,12 +48,14 @@ public:
 	// When saving missions or writing the player's save, the reference name
 	// associated with this planet is used even if the planet was not fully
 	// defined (i.e. it belongs to an inactive plugin).
-	const std::string &Name() const;
+	std::string Name() const;
 	void SetName(const std::string &name);
-	// Get the name used for this planet in the data files.
+	// Get the internal name used for this planet. This name is unique and
+	// never modified by translation, so it can be used in condition
+	// variables, etc.
 	const std::string &TrueName() const;
 	// Get the planet's descriptive text.
-	const std::string &Description() const;
+	std::string Description() const;
 	// Get the landscape sprite.
 	const Sprite *Landscape() const;
 	// Get the name of the ambient audio to play on this planet.
@@ -62,13 +65,14 @@ public:
 	const std::set<std::string> &Attributes() const;
 	
 	// Get planet's noun descriptor from attributes
-	const std::string &Noun() const;
+	// This function may return a translated text.
+	std::string Noun() const;
 	
 	// Check whether there is a spaceport (which implies there is also trading,
 	// jobs, banking, and hiring).
 	bool HasSpaceport() const;
 	// Get the spaceport's descriptive text.
-	const std::string &SpaceportDescription() const;
+	std::string SpaceportDescription() const;
 	
 	// Check if this planet is inhabited (i.e. it has a spaceport, and does not
 	// have the "uninhabited" attribute).
@@ -138,8 +142,9 @@ public:
 private:
 	bool isDefined = false;
 	std::string name;
-	std::string description;
-	std::string spaceport;
+	Gettext::T_ displayName;
+	std::vector<Gettext::T_> description;
+	std::vector<Gettext::T_> spaceport;
 	const Sprite *landscape = nullptr;
 	std::string music;
 	

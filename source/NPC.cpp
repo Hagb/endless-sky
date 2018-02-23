@@ -31,18 +31,19 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <vector>
 
 using namespace std;
+using namespace Gettext;
 
 
 
 // Construct and Load() at the same time.
-NPC::NPC(const DataNode &node)
+NPC::NPC(const DataNode &node, const string &context)
 {
-	Load(node);
+	Load(node, context);
 }
 
 
 
-void NPC::Load(const DataNode &node)
+void NPC::Load(const DataNode &node, const string &context)
 {
 	// Any tokens after the "npc" tag list the things that must happen for this
 	// mission to succeed.
@@ -133,7 +134,7 @@ void NPC::Load(const DataNode &node)
 				Dialog::ParseTextNode(child, 1, dialogText);
 		}
 		else if(child.Token(0) == "conversation" && child.HasChildren())
-			conversation.Load(child);
+			conversation.Load(child, context);
 		else if(child.Token(0) == "conversation" && child.Size() > 1)
 			stockConversation = GameData::Conversations().Get(child.Token(1));
 		else if(child.Token(0) == "to" && child.Size() >= 2)
@@ -160,7 +161,7 @@ void NPC::Load(const DataNode &node)
 			{
 				// Loading a ship managed by GameData, i.e. "base models" and variants.
 				stockShips.push_back(GameData::Ships().Get(child.Token(1)));
-				shipNames.push_back(child.Token(1 + (child.Size() > 2)));
+				shipNames.emplace_back(child.Token(1 + (child.Size() > 2)), "ship");
 			}
 			else
 			{
@@ -259,13 +260,13 @@ void NPC::Save(DataWriter &out) const
 			out.Write("government", government->GetTrueName());
 		personality.Save(out);
 		
-		if(!dialogText.empty())
+		if(!IsEmptyText(dialogText))
 		{
 			out.Write("dialog");
 			out.BeginChild();
 			{
 				// Break the text up into paragraphs.
-				for(const string &line : Format::Split(dialogText, "\n\t"))
+				for(const string &line : Format::Split(Concat(dialogText), T("\n\t", "dialog paragraph separator")))
 					out.Write(line);
 			}
 			out.EndChild();
@@ -434,15 +435,15 @@ void NPC::Do(const ShipEvent &event, PlayerInfo &player, UI *ui, bool isVisible)
 	
 	// Check if the success status has changed. If so, display a message.
 	if(isVisible && !alreadyFailed && HasFailed())
-		Messages::Add("Mission failed.");
+		Messages::Add(T("Mission failed."));
 	else if(ui && !alreadySucceeded && HasSucceeded(player.GetSystem(), false))
 	{
 		// If "completing" this NPC displays a conversation, reference
 		// it, to allow the completing event's target to be destroyed.
 		if(!conversation.IsEmpty())
 			ui->Push(new ConversationPanel(player, conversation, nullptr, ship));
-		else if(!dialogText.empty())
-			ui->Push(new Dialog(dialogText));
+		else if(!IsEmptyText(dialogText))
+				ui->Push(new Dialog(Concat(dialogText)));
 	}
 }
 
@@ -583,10 +584,12 @@ NPC NPC::Instantiate(map<string, string> &subs, const System *origin, const Syst
 	}
 	auto shipIt = stockShips.begin();
 	auto nameIt = shipNames.begin();
+	result.shipNames.clear();
 	for( ; shipIt != stockShips.end() && nameIt != shipNames.end(); ++shipIt, ++nameIt)
 	{
 		result.ships.push_back(make_shared<Ship>(**shipIt));
-		result.ships.back()->SetName(*nameIt);
+		result.ships.back()->SetName(nameIt->Str());
+		result.shipNames.push_back(Tx(nameIt->Str()));
 	}
 	for(const Fleet &fleet : fleets)
 		fleet.Place(*result.system, result.ships, false);
@@ -620,9 +623,9 @@ NPC NPC::Instantiate(map<string, string> &subs, const System *origin, const Syst
 	// Do string replacement on any dialog or conversation.
 	string dialogText = stockDialogPhrase ? stockDialogPhrase->Get()
 		: (!dialogPhrase.Name().empty() ? dialogPhrase.Get()
-		: this->dialogText);
+		: Concat(this->dialogText));
 	if(!dialogText.empty())
-		result.dialogText = Format::Replace(dialogText, subs);
+		result.dialogText = vector<T_>{Tx(Format::Replace(dialogText, subs))};
 	
 	if(stockConversation)
 		result.conversation = stockConversation->Substitute(subs);

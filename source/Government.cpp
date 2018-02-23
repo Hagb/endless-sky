@@ -23,6 +23,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <algorithm>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	unsigned nextID = 0;
@@ -52,14 +53,14 @@ void Government::Load(const DataNode &node)
 	if(node.Size() >= 2)
 	{
 		name = node.Token(1);
-		if(displayName.empty())
-			displayName = name;
+		if(displayName.Original().empty())
+			displayName = T_(name, "government");
 	}
 	
 	for(const DataNode &child : node)
 	{
 		if(child.Token(0) == "display name" && child.Size() >= 2)
-			displayName = child.Token(1);
+			displayName = T_(child.Token(1), "government");
 		else if(child.Token(0) == "swizzle" && child.Size() >= 2)
 			swizzle = child.Value(1);
 		else if(child.Token(0) == "color" && child.Size() >= 4)
@@ -143,7 +144,7 @@ void Government::Load(const DataNode &node)
 // Get the display name of this government.
 const string &Government::GetName() const
 {
-	return displayName;
+	return displayName.Str();
 }
 
 

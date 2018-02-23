@@ -16,6 +16,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Body.h"
 
 #include "Angle.h"
+#include "text/Gettext.h"
 
 #include <list>
 #include <map>
@@ -47,6 +48,10 @@ public:
 	// Load a definition of a minable object.
 	void Load(const DataNode &node);
 	const std::string &Name() const;
+	// Get the internal name used for this minable object. This name is unique
+	// and never modified by translation, so it can be used in condition
+	// variables, etc.
+	const std::string &TrueName() const;
 	
 	// Place a minable object with up to the given energy level, on a random
 	// orbit and a random position along that orbit.
@@ -65,7 +70,7 @@ public:
 	
 	
 private:
-	std::string name;
+	Gettext::T_ name;
 	// Current angular position relative to the focus of the elliptical orbit,
 	// in radians. An angle of zero is the periapsis point.
 	double theta;

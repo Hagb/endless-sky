@@ -16,6 +16,8 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Command.h"
 #include "DistanceMap.h"
 #include "Flotsam.h"
+#include "text/Format.h"
+#include "text/Gettext.h"
 #include "Government.h"
 #include "Hardpoint.h"
 #include "Mask.h"
@@ -39,6 +41,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <set>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	// If the player issues any of those commands, then any auto-pilot actions for the player get cancelled
@@ -160,14 +163,14 @@ namespace {
 		{
 			for(Ship *ship : toDeploy)
 				ship->SetDeployOrder(true);
-			Messages::Add("Deployed " + to_string(toDeploy.size()) + " carried ships.");
+			Messages::Add(Format::StringF(T("Deployed %1% carried ships."), to_string(toDeploy.size())));
 		}
 		// Otherwise, instruct the carried ships to return to their berth.
 		else if(!toRecall.empty())
 		{
 			for(Ship *ship : toRecall)
 				ship->SetDeployOrder(false);
-			Messages::Add("Recalled " + to_string(toRecall.size()) + " carried ships");
+			Messages::Add(Format::StringF(T("Recalled %1% carried ships."), to_string(toRecall.size())));
 		}
 	}
 	
@@ -294,6 +297,18 @@ namespace {
 	// The health remaining before becoming disabled, at which fighters and
 	// other ships consider retreating from battle.
 	const double RETREAT_HEALTH = .25;
+	
+	// The format string for list of words.
+	Format::ListOfWords listOfPlanets;
+	Format::ListOfWords listOfPlanetsNouns;
+	
+	// The Hook of translation.
+	function<void()> updateCatalog([](){
+		listOfPlanets.SetSeparators(T(": and :, :, and ", "AI"));
+		listOfPlanetsNouns.SetSeparators(T(": or :, :, or "));
+	});
+	// Set the hook.
+	volatile bool hooked = AddHookUpdating(&updateCatalog);
 }
 
 
@@ -313,7 +328,11 @@ void AI::IssueShipTarget(const PlayerInfo &player, const shared_ptr<Ship> &targe
 	newOrders.type = (!isEnemy ? Orders::KEEP_STATION
 		: target->IsDisabled() ? Orders::FINISH_OFF : Orders::ATTACK);
 	newOrders.target = target;
-	string description = (isEnemy ? "focusing fire on" : "following") + (" \"" + target->Name() + "\".");
+	string description;
+	if(isEnemy)
+		description = Format::StringF(T("focusing fire on \"%1%\"."), target->Name());
+	else
+		description = Format::StringF(T("following \"%1%\"."), target->Name());
 	IssueOrders(player, newOrders, description);
 }
 
@@ -325,8 +344,8 @@ void AI::IssueMoveTarget(const PlayerInfo &player, const Point &target, const Sy
 	newOrders.type = Orders::MOVE_TO;
 	newOrders.point = target;
 	newOrders.targetSystem = moveToSystem;
-	string description = "moving to the given location";
-	description += player.GetSystem() == moveToSystem ? "." : (" in the " + moveToSystem->Name() + " system.");
+	const string description = player.GetSystem() == moveToSystem ? T("moving to the given location.")
+		: Format::StringF(T("moving to the given location in the %1% system."), moveToSystem->Name());
 	IssueOrders(player, newOrders, description);
 }
 
@@ -350,7 +369,7 @@ void AI::UpdateKeys(PlayerInfo &player, Command &activeCommands)
 		canceled |= (autoPilot.Has(Command::LAND) && !activeCommands.Has(Command::LAND));
 		canceled |= (autoPilot.Has(Command::BOARD) && !activeCommands.Has(Command::BOARD));
 		if(canceled)
-			Messages::Add("Disengaging autopilot.");
+			Messages::Add(T("Disengaging autopilot."));
 		autoPilot.Clear();
 	}
 	
@@ -358,7 +377,7 @@ void AI::UpdateKeys(PlayerInfo &player, Command &activeCommands)
 		return;
 	
 	if(activeCommands.Has(Command::STOP))
-		Messages::Add("Coming to a stop.");
+		Messages::Add(T("Coming to a stop."));
 	
 	// Only toggle the "cloak" command if one of your ships has a cloaking device.
 	if(activeCommands.Has(Command::CLOAK))
@@ -366,7 +385,7 @@ void AI::UpdateKeys(PlayerInfo &player, Command &activeCommands)
 			if(!it->IsParked() && it->Attributes().Get("cloak"))
 			{
 				isCloaking = !isCloaking;
-				Messages::Add(isCloaking ? "Engaging cloaking device." : "Disengaging cloaking device.");
+				Messages::Add(isCloaking ? T("Engaging cloaking device.") : T("Disengaging cloaking device."));
 				break;
 			}
 	
@@ -388,18 +407,18 @@ void AI::UpdateKeys(PlayerInfo &player, Command &activeCommands)
 	{
 		newOrders.type = target->IsDisabled() ? Orders::FINISH_OFF : Orders::ATTACK;
 		newOrders.target = target;
-		IssueOrders(player, newOrders, "focusing fire on \"" + target->Name() + "\".");
+		IssueOrders(player, newOrders, Format::StringF(T("focusing fire on \"%1%\"."), target->Name()));
 	}
 	if(activeCommands.Has(Command::HOLD))
 	{
 		newOrders.type = Orders::HOLD_POSITION;
-		IssueOrders(player, newOrders, "holding position.");
+		IssueOrders(player, newOrders, T("holding position."));
 	}
 	if(activeCommands.Has(Command::GATHER))
 	{
 		newOrders.type = Orders::GATHER;
 		newOrders.target = player.FlagshipPtr();
-		IssueOrders(player, newOrders, "gathering around your flagship.");
+		IssueOrders(player, newOrders, T("gathering around your flagship."));
 	}
 	
 	// Get rid of any invalid orders. Carried ships will retain orders in case they are deployed.
@@ -663,8 +682,9 @@ void AI::Step(const PlayerInfo &player, Command &activeCommands)
 							it->Jettison(commodity.first, dumped);
 							toDump -= dumped;
 						}
-					Messages::Add(gov->GetName() + " " + it->Noun() + " \"" + it->Name()
-						+ "\": Please, just take my cargo and leave me alone.");
+					Messages::Add(Format::StringF(T("%1% %2% \"%3%\": Please, "
+						"just take my cargo and leave me alone."),
+						gov->GetName(), it->Noun(), it->Name()));
 					threshold = (1. - health) + .1;
 				}
 			}
@@ -3177,21 +3197,11 @@ void AI::MovePlayer(Ship &ship, const PlayerInfo &player, Command &activeCommand
 		// Inform the player of any destinations in the system they are jumping to.
 		if(!destinations.empty())
 		{
-			string message = "Note: you have ";
-			message += (missions == 1 ? "a mission that requires" : "missions that require");
-			message += " landing on ";
-			size_t count = destinations.size();
-			bool oxfordComma = (count > 2);
-			for(const Planet *planet : destinations)
-			{
-				message += planet->Name();
-				--count;
-				if(count > 1)
-					message += ", ";
-				else if(count == 1)
-					message += (oxfordComma ? ", and " : " and ");
-			}
-			message += " in the system you are jumping to.";
+			string message = T("Note: you have ");
+			message += nT("a mission that requires", "missions that require", missions);
+			auto it = destinations.begin();
+			message += Format::StringF(T(" landing on %1% in the system you are jumping to."),
+				listOfPlanets.GetList(destinations.size(), [&it](){ return (*it++)->Name(); }));
 			Messages::Add(message);
 		}
 		// If any destination was found, find the corresponding stellar object
@@ -3350,12 +3360,12 @@ void AI::MovePlayer(Ship &ship, const PlayerInfo &player, Command &activeCommand
 			
 			if(!next->GetPlanet()->CanLand())
 			{
-				message = "The authorities on this " + next->GetPlanet()->Noun() +
-					" refuse to clear you to land here.";
+				message = Format::StringF(T("The authorities on this %1% refuse to clear you to land here."),
+					next->GetPlanet()->Noun());
 				Audio::Play(Audio::Get("fail"));
 			}
 			else if(next != target)
-				message = "Switching landing targets. Now landing on " + next->Name() + ".";
+				message = Format::StringF(T("Switching landing targets. Now landing on %1%."), next->Name());
 		}
 		else if(message.empty())
 		{
@@ -3389,33 +3399,23 @@ void AI::MovePlayer(Ship &ship, const PlayerInfo &player, Command &activeCommand
 			
 			if(!target)
 			{
-				message = "There are no planets in this system that you can land on.";
+				message = T("There are no planets in this system that you can land on.");
 				Audio::Play(Audio::Get("fail"));
 			}
 			else if(!target->GetPlanet()->CanLand())
 			{
-				message = "The authorities on this " + target->GetPlanet()->Noun() +
-					" refuse to clear you to land here.";
+				message = Format::StringF(T("The authorities on this %1% refuse to clear you to land here."),
+					target->GetPlanet()->Noun());
 				Audio::Play(Audio::Get("fail"));
 			}
 			else if(!types.empty())
 			{
-				message = "You can land on more than one ";
 				set<string>::const_iterator it = types.begin();
-				message += *it++;
-				if(it != types.end())
-				{
-					set<string>::const_iterator last = --types.end();
-					if(it != last)
-						message += ',';
-					while(it != last)
-						message += ' ' + *it++ + ',';
-					message += " or " + *it;
-				}
-				message += " in this system. Landing on " + target->Name() + ".";
+				message = Format::StringF(T("You can land on more than one %1% in this system. Landing on %2%."),
+					listOfPlanetsNouns.GetList(types.size(), [&it](){ return *it++; }), target->Name());
 			}
 			else
-				message = "Landing on " + target->Name() + ".";
+				message = Format::StringF(T("Landing on %1%.", "AI"), target->Name());
 		}
 		if(!message.empty())
 			Messages::Add(message);
@@ -3446,16 +3446,16 @@ void AI::MovePlayer(Ship &ship, const PlayerInfo &player, Command &activeCommand
 		else if(isWormhole)
 		{
 			// The player is guaranteed to have a travel plan for isWormhole to be true.
-			Messages::Add("Landing on a local wormhole to navigate to the "
-					+ player.TravelPlan().back()->Name() + " system.");
+			Messages::Add(Format::StringF(T("Landing on a local wormhole to navigate to the %1% system."),
+				player.TravelPlan().back()->Name()));
 		}
 		if(ship.GetTargetSystem() && !isWormhole)
 		{
-			string name = "selected star";
+			string name = T("selected star");
 			if(player.KnowsName(*ship.GetTargetSystem()))
 				name = ship.GetTargetSystem()->Name();
 			
-			Messages::Add("Engaging autopilot to jump to the " + name + " system.");
+			Messages::Add(Format::StringF(T("Engaging autopilot to jump to the %1% system."), name));
 		}
 	}
 	else if(activeCommands.Has(Command::SCAN))
@@ -3536,7 +3536,7 @@ void AI::MovePlayer(Ship &ship, const PlayerInfo &player, Command &activeCommand
 		const Planet *planet = player.TravelDestination();
 		if(planet && planet->IsInSystem(ship.GetSystem()) && planet->IsAccessible(&ship))
 		{
-			Messages::Add("Autopilot: landing on " + planet->Name() + ".");
+			Messages::Add(Format::StringF(T("Autopilot: landing on %1%."), planet->Name()));
 			autoPilot |= Command::LAND;
 			ship.SetTargetStellar(ship.GetSystem()->FindStellar(planet));
 		}
@@ -3570,19 +3570,19 @@ void AI::MovePlayer(Ship &ship, const PlayerInfo &player, Command &activeCommand
 	{
 		if(!ship.Attributes().Get("hyperdrive") && !ship.Attributes().Get("jump drive"))
 		{
-			Messages::Add("You do not have a hyperdrive installed.");
+			Messages::Add(T("You do not have a hyperdrive installed."));
 			autoPilot.Clear();
 			Audio::Play(Audio::Get("fail"));
 		}
 		else if(!ship.JumpFuel(ship.GetTargetSystem()))
 		{
-			Messages::Add("You cannot jump to the selected system.");
+			Messages::Add(T("You cannot jump to the selected system."));
 			autoPilot.Clear();
 			Audio::Play(Audio::Get("fail"));
 		}
 		else if(!ship.JumpsRemaining() && !ship.IsEnteringHyperspace())
 		{
-			Messages::Add("You do not have enough fuel to make a hyperspace jump.");
+			Messages::Add(T("You do not have enough fuel to make a hyperspace jump."));
 			autoPilot.Clear();
 			Audio::Play(Audio::Get("fail"));
 		}
@@ -3762,7 +3762,7 @@ void AI::IssueOrders(const PlayerInfo &player, const Orders &newOrders, const st
 		for(const shared_ptr<Ship> &it : player.Ships())
 			if(it.get() != player.Flagship() && !it->IsParked())
 				ships.push_back(it.get());
-		who = ships.size() > 1 ? "Your fleet is " : "Your escort is ";
+		who = nT("Your escort is ", "Your fleet is ", "IssueOrders", ships.size());
 	}
 	else
 	{
@@ -3772,7 +3772,7 @@ void AI::IssueOrders(const PlayerInfo &player, const Orders &newOrders, const st
 			if(ship)
 				ships.push_back(ship.get());
 		}
-		who = ships.size() > 1 ? "The selected escorts are " : "The selected escort is ";
+		who = nT("The selected escort is ", "The selected escorts are ", "IssueOrders", ships.size());
 	}
 	// This should never happen, but just in case:
 	if(ships.empty())
@@ -3851,14 +3851,14 @@ void AI::IssueOrders(const PlayerInfo &player, const Orders &newOrders, const st
 			return;
 	}
 	if(hasMismatch)
-		Messages::Add(who + description);
+		Messages::Add(Format::StringF(T("%1%%2%", "IssueOrders"), who, description));
 	else
 	{
 		// Clear all the orders for these ships.
 		if(!isValidTarget)
-			Messages::Add(who + "unable to and no longer " + description);
+			Messages::Add(Format::StringF(T("%1%unable to and no longer %2%", "IssueOrders"), who, description));
 		else
-			Messages::Add(who + "no longer " + description);
+			Messages::Add(Format::StringF(T("%1%no longer %2%", "IssueOrders"), who, description));
 		
 		for(const Ship *ship : ships)
 			orders.erase(ship);

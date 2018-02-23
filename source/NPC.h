@@ -15,6 +15,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include "Conversation.h"
 #include "Fleet.h"
+#include "text/Gettext.h"
 #include "LocationFilter.h"
 #include "Personality.h"
 #include "Phrase.h"
@@ -23,6 +24,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 class DataNode;
 class DataWriter;
@@ -44,9 +46,9 @@ class NPC {
 public:
 	NPC() = default;
 	// Construct and Load() at the same time.
-	NPC(const DataNode &node);
+	NPC(const DataNode &node, const std::string &context);
 	
-	void Load(const DataNode &node);
+	void Load(const DataNode &node, const std::string &context);
 	// Note: the Save() function can assume this is an instantiated mission, not
 	// a template, so fleets will be replaced by individual ships already.
 	void Save(DataWriter &out) const;
@@ -90,7 +92,7 @@ private:
 	const Planet *planet = nullptr;
 	
 	// Dialog or conversation to show when all requirements for this NPC are met:
-	std::string dialogText;
+	std::vector<Gettext::T_> dialogText;
 	const Phrase *stockDialogPhrase = nullptr;
 	Phrase dialogPhrase;
 	
@@ -114,7 +116,7 @@ private:
 	// be customized or just refer to stock objects:
 	std::list<std::shared_ptr<Ship>> ships;
 	std::list<const Ship *> stockShips;
-	std::list<std::string> shipNames;
+	std::list<Gettext::T_> shipNames;
 	std::list<Fleet> fleets;
 	std::list<const Fleet *> stockFleets;
 	

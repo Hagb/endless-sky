@@ -15,6 +15,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include "ConditionSet.h"
 #include "Conversation.h"
+#include "text/Gettext.h"
 #include "LocationFilter.h"
 #include "Phrase.h"
 
@@ -55,7 +56,7 @@ public:
 	
 	int Payment() const;
 	
-	const std::string &DialogText() const;
+	std::string DialogText() const;
 	
 	// Check if this action can be completed right now. It cannot be completed
 	// if it takes away money or outfits that the player does not have, or should
@@ -75,10 +76,10 @@ private:
 	std::string system;
 	LocationFilter systemFilter;
 	
-	std::string logText;
-	std::map<std::string, std::map<std::string, std::string>> specialLogText;
+	std::vector<Gettext::T_> logText;
+	std::map<std::string, std::map<std::string, std::vector<Gettext::T_>>> specialLogText;
 	
-	std::string dialogText;
+	std::vector<Gettext::T_> dialogText;
 	const Phrase *stockDialogPhrase = nullptr;
 	Phrase dialogPhrase;
 	

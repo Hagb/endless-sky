@@ -19,6 +19,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <string>
 
 namespace { // test namespace
+using ListOfWords = Format::ListOfWords;
 
 // #region mock data
 
@@ -79,6 +80,286 @@ SCENARIO("A unit of playing time is to be made human-readable", "[Format][PlayTi
 	}
 }
 
+SCENARIO("A unit test of formatted string function", "[Format][StringF]") {
+	GIVEN( "empty parameter" ) {
+		THEN( "An empty string is returned" ) {
+			CHECK( Format::StringF({}) == "" );
+		}
+	}
+	
+	GIVEN( "A single parameter" ) {
+		THEN( "The parameter is returned" ) {
+			CHECK( Format::StringF("abc") == "abc" );
+		}
+	}
+	
+	GIVEN( "A positional directive and the string referred by it" ) {
+		THEN( "The formatted string is returned" ) {
+			CHECK( Format::StringF("abc%1%def", "xyz") == "abcxyzdef");
+		}
+	}
+	
+	GIVEN( "A format that has a positional directive at the first position" ) {
+		THEN( "The formatted string is returned" ) {
+			CHECK( Format::StringF("%1%def", "xyz") == "xyzdef");
+		}
+	}
+	
+	GIVEN( "A format that has a positional directive at the last position" ) {
+		THEN( "The formatted string is returned" ) {
+			CHECK( Format::StringF("abc%1%", "xyz") == "abcxyz");
+		}
+	}
+	
+	GIVEN( "Eleven strings referred by a format" ) {
+		THEN( "The formatted string is returned" ) {
+			CHECK( Format::StringF("a%1%b%2%c%3%d%4%e%5%f%6%g%7%h%8%i%9%j%10%k%11%l", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z") == "apbqcrdsetfugvhwixjykzl");
+		}
+	}
+	
+	GIVEN( "Reverse-ordered positional parameters" ) {
+		THEN( "The formatted string is returned" ) {
+			CHECK( Format::StringF("a%2%b%1%c", "y", "z") == "azbyc");
+		}
+	}
+	
+	GIVEN( "Too many parameters" ) {
+		THEN( "A parameter not to referred by the format is ignored" ) {
+			CHECK( Format::StringF("a%1%b%2%c", "x", "y", "z") == "axbyc");
+		}
+	}
+	
+	GIVEN( "Too few parameters" ) {
+		THEN( "No parameter to referred by the format is not replaced" ) {
+			CHECK( Format::StringF("a%1%b%2%c", "x") == "axb%2%c");
+		}
+	}
+	
+	GIVEN( "Positional directive %0%" ) {
+		THEN( "%0% is not replaced" ) {
+			CHECK( Format::StringF("a%0%b%1%c", "x") == "a%0%bxc");
+		}
+	}
+	
+	GIVEN( "A format string including %" ) {
+		THEN( "% is not replaced" ) {
+			CHECK( Format::StringF("a%1%b%c", "x", "y") == "axb%c");
+		}
+	}
+	
+	GIVEN( "A format string ended by %1" ) {
+		THEN( "%1 is not replaced" ) {
+			CHECK( Format::StringF("a%1", "x") == "a%1");
+		}
+	}
+	
+	GIVEN( "A format string including %a%" ) {
+		THEN( "%a% is not replaced" ) {
+			CHECK( Format::StringF("x%a%z", "y") == "x%a%z");
+		}
+	}
+}
+
+SCENARIO("A unit test of class ListOfWords", "[Format][ListOfWords]") {
+	GIVEN( "A ListOfWords constructed by default" ) {
+		ListOfWords listOfWords;
+		
+		WHEN( "There is no items" ) {
+			std::vector<std::string> items{};
+			auto it = items.begin();
+			THEN( "An empty string is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "" );
+			}
+		}
+		WHEN( "There is one items" ) {
+			std::vector<std::string> items{"a"};
+			auto it = items.begin();
+			THEN( "The item is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a" );
+			}
+		}
+		WHEN( "There is two items" ) {
+			std::vector<std::string> items{"a", "b"};
+			auto it = items.begin();
+			THEN( "The string concatinated two items is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "ab" );
+			}
+		}
+		WHEN( "There is three items" ) {
+			std::vector<std::string> items{"a", "b", "c"};
+			auto it = items.begin();
+			THEN( "The string concatinated three items is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "abc" );
+			}
+		}
+	}
+	
+	GIVEN( "A ListOfWords created by a comma separator" ) {
+		ListOfWords listOfWords(":, :");
+		
+		WHEN( "There is no items" ) {
+			std::vector<std::string> items{};
+			auto it = items.begin();
+			THEN( "An empty string is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "" );
+			}
+		}
+		WHEN( "There is one item" ) {
+			std::vector<std::string> items{"a"};
+			auto it = items.begin();
+			THEN( "The item is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a" );
+			}
+		}
+		WHEN( "There is two items" ) {
+			std::vector<std::string> items{"a", "b"};
+			auto it = items.begin();
+			THEN( "The string separated two items by comma is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a, b" );
+			}
+		}
+		WHEN( "There is three items" ) {
+			std::vector<std::string> items{"a", "b", "c"};
+			auto it = items.begin();
+			THEN( "The string separated three items by comma is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a, b, c" );
+			}
+		}
+	}
+	
+	GIVEN( "A ListOfWords created by an oxford comma separator" ) {
+		ListOfWords listOfWords(": and :, :, and :");
+		
+		WHEN( "There is no items" ) {
+			std::vector<std::string> items{};
+			auto it = items.begin();
+			THEN( "An empty string is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "" );
+			}
+		}
+		WHEN( "There is one item" ) {
+			std::vector<std::string> items{"a"};
+			auto it = items.begin();
+			THEN( "The item is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a" );
+			}
+		}
+		WHEN( "There is two items" ) {
+			std::vector<std::string> items{"a", "b"};
+			auto it = items.begin();
+			THEN( "The string separated two items by oxford comma is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a and b" );
+			}
+		}
+		WHEN( "There is three items" ) {
+			std::vector<std::string> items{"a", "b", "c"};
+			auto it = items.begin();
+			THEN( "The string separated three items by oxford comma is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a, b, and c" );
+			}
+		}
+		WHEN( "There is four items" ) {
+			std::vector<std::string> items{"a", "b", "c", "d"};
+			auto it = items.begin();
+			THEN( "The string separated four items by oxford comma is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a, b, c, and d" );
+			}
+		}
+		WHEN( "There is five items" ) {
+			std::vector<std::string> items{"a", "b", "c", "d", "e"};
+			auto it = items.begin();
+			THEN( "The string separated five items by oxford comma is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a, b, c, d, and e" );
+			}
+		}
+	}
+	
+	GIVEN( "A ListOfWords created by more complex separator" ) {
+		ListOfWords listOfWords(":%:, :$:, :, :#:-:=:|:/:");
+		
+		WHEN( "There is no items" ) {
+			std::vector<std::string> items{};
+			auto it = items.begin();
+			THEN( "An empty string is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "" );
+			}
+		}
+		WHEN( "There is one item" ) {
+			std::vector<std::string> items{"a"};
+			auto it = items.begin();
+			THEN( "The item is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a" );
+			}
+		}
+		WHEN( "There is two items" ) {
+			std::vector<std::string> items{"a", "b"};
+			auto it = items.begin();
+			THEN( "The string separated two items by % is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a%b" );
+			}
+		}
+		WHEN( "There is three items" ) {
+			std::vector<std::string> items{"a", "b", "c"};
+			auto it = items.begin();
+			THEN( "The string separated three items by , and $ is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a, b$c" );
+			}
+		}
+		WHEN( "There is four items" ) {
+			std::vector<std::string> items{"a", "b", "c", "d"};
+			auto it = items.begin();
+			THEN( "The string separated four items by , , and # is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a, b, c#d" );
+			}
+		}
+		WHEN( "There is five items" ) {
+			std::vector<std::string> items{"a", "b", "c", "d", "e"};
+			auto it = items.begin();
+			THEN( "The string separated five items by -=|/ is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a-b=c|d/e" );
+			}
+		}
+		WHEN( "There is six items" ) {
+			std::vector<std::string> items{"a", "b", "c", "d", "e", "f"};
+			auto it = items.begin();
+			THEN( "The string separated six items by -==|/ is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a-b=c=d|e/f" );
+			}
+		}
+		WHEN( "There is seven items" ) {
+			std::vector<std::string> items{"a", "b", "c", "d", "e", "f", "g"};
+			auto it = items.begin();
+			THEN( "The string separated seven items by -===|/ is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a-b=c=d=e|f/g" );
+			}
+		}
+	}
+	
+	GIVEN( "A ListOfWords created by a separator that has a delimiter '/'" ) {
+		ListOfWords listOfWords("/%/, /$/, /, /#/-/=/|/:/");
+		
+		WHEN( "There is seven items" ) {
+			std::vector<std::string> items{"a", "b", "c", "d", "e", "f", "g"};
+			auto it = items.begin();
+			THEN( "The string separated seven items by -===|: is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a-b=c=d=e|f:g" );
+			}
+		}
+	}
+	
+	GIVEN( "A ListOfWords called SetSeparators" ) {
+		ListOfWords listOfWords("/%/, /$/, /, /#/-/=/|/:/");
+		listOfWords.SetSeparators("/ and /, /, and /");
+		
+		WHEN( "There is seven items" ) {
+			std::vector<std::string> items{"a", "b", "c", "d", "e", "f", "g"};
+			auto it = items.begin();
+			THEN( "The string separated seven items by oxford comma is returned" ) {
+				CHECK( listOfWords.GetList(items.size(), [&it](){ return *it++; }) == "a, b, c, d, e, f, and g" );
+			}
+		}
+	}
+}
 // #endregion unit tests
 
 // #region benchmarks

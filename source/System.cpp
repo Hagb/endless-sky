@@ -28,6 +28,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <cmath>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	// Dynamic economy parameters: how much of its production each system keeps
@@ -135,6 +136,7 @@ void System::Load(const DataNode &node, Set<Planet> &planets)
 		return;
 	name = node.Token(1);
 	isDefined = true;
+	displayName = T_(name, "system");
 	
 	// For the following keys, if this data node defines a new value for that
 	// key, the old values should be cleared (unless using the "add" keyword).
@@ -349,37 +351,37 @@ void System::Load(const DataNode &node, Set<Planet> &planets)
 		while(root->parent >= 0)
 			root = &objects[root->parent];
 		
-		static const string STAR = "You cannot land on a star!";
-		static const string HOTPLANET = "This planet is too hot to land on.";
-		static const string COLDPLANET = "This planet is too cold to land on.";
-		static const string UNINHABITEDPLANET = "This planet is uninhabited.";
-		static const string HOTMOON = "This moon is too hot to land on.";
-		static const string COLDMOON = "This moon is too cold to land on.";
-		static const string UNINHABITEDMOON = "This moon is uninhabited.";
-		static const string STATION = "This station cannot be docked with.";
+		static const T_ STAR = T_("You cannot land on a star!");
+		static const T_ HOTPLANET = T_("This planet is too hot to land on.");
+		static const T_ COLDPLANET = T_("This planet is too cold to land on.");
+		static const T_ UNINHABITEDPLANET = T_("This planet is uninhabited.");
+		static const T_ HOTMOON = T_("This moon is too hot to land on.");
+		static const T_ COLDMOON = T_("This moon is too cold to land on.");
+		static const T_ UNINHABITEDMOON = T_("This moon is uninhabited.");
+		static const T_ STATION = T_("This station cannot be docked with.");
 		
 		double fraction = root->distance / habitable;
 		if(object.IsStar())
-			object.message = &STAR;
+			object.message = &STAR.Str();
 		else if(object.IsStation())
-			object.message = &STATION;
+			object.message = &STATION.Str();
 		else if(object.IsMoon())
 		{
 			if(fraction < .5)
-				object.message = &HOTMOON;
+				object.message = &HOTMOON.Str();
 			else if(fraction >= 2.)
-				object.message = &COLDMOON;
+				object.message = &COLDMOON.Str();
 			else
-				object.message = &UNINHABITEDMOON;
+				object.message = &UNINHABITEDMOON.Str();
 		}
 		else
 		{
 			if(fraction < .5)
-				object.message = &HOTPLANET;
+				object.message = &HOTPLANET.Str();
 			else if(fraction >= 2.)
-				object.message = &COLDPLANET;
+				object.message = &COLDPLANET.Str();
 			else
-				object.message = &UNINHABITEDPLANET;
+				object.message = &UNINHABITEDPLANET.Str();
 		}
 	}
 	// Print a warning if this system wasn't explicitly given a position.
@@ -459,6 +461,13 @@ bool System::IsValid() const
 // Get this system's name.
 const string &System::Name() const
 {
+	return displayName.Str();
+}
+
+
+
+const string &System::TrueName() const
+{
 	return name;
 }
 
@@ -467,6 +476,7 @@ const string &System::Name() const
 void System::SetName(const std::string &name)
 {
 	this->name = name;
+	this->displayName = T_(name, "system");
 }
 
 

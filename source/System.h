@@ -13,6 +13,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #ifndef SYSTEM_H_
 #define SYSTEM_H_
 
+#include "text/Gettext.h"
 #include "Point.h"
 #include "Set.h"
 #include "StellarObject.h"
@@ -98,8 +99,13 @@ public:
 	bool IsValid() const;
 	// Get this system's name and position (in the star map).
 	const std::string &Name() const;
-	void SetName(const std::string &name);
 	const Point &Position() const;
+	// Get the internal name used for this system. This name is unique and
+	// never modified by translation, so it can be used in condition
+	// variables, etc.
+	const std::string &TrueName() const;
+	// Set this system's name and internal name.
+	void SetName(const std::string &name);
 	// Get this system's government.
 	const Government *GetGovernment() const;
 	// Get the name of the ambient audio to play in this system.
@@ -198,6 +204,7 @@ private:
 	bool hasPosition = false;
 	// Name and position (within the star map) of this system.
 	std::string name;
+	Gettext::T_ displayName;
 	Point position;
 	const Government *government = nullptr;
 	std::string music;

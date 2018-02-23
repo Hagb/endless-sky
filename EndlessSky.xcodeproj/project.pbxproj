@@ -166,6 +166,8 @@
 		AFF742E3BAA4AD9A5D001460 /* alignment.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 13B643F6BEC24349F9BC9F42 /* alignment.hpp */; settings = {ATTRIBUTES = (Project, ); }; };
 		B55C239D2303CE8B005C1A14 /* GameWindow.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B55C239B2303CE8A005C1A14 /* GameWindow.cpp */; };
 		B590161321ED4A0F00799178 /* Utf8.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B590161121ED4A0E00799178 /* Utf8.cpp */; };
+		B590161621ED4A0F00799178 /* Gettext.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B590161421ED4A0E00799178 /* Gettext.cpp */; };
+		B590161921ED4A0F00799178 /* Languages.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B590161721ED4A0E00799178 /* Languages.cpp */; };
 		B5DDA6942001B7F600DBA76A /* News.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B5DDA6922001B7F600DBA76A /* News.cpp */; };
 		C4264774A89C0001B6FFC60E /* Hazard.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C49D4EA08DF168A83B1C7B07 /* Hazard.cpp */; };
 		C7354A3E9C53D6C5E3CC352F /* TestData.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02D34A71AE3BC4C93FC6865B /* TestData.cpp */; };
@@ -490,6 +492,10 @@
 		B590161121ED4A0E00799178 /* Utf8.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Utf8.cpp; path = source/text/Utf8.cpp; sourceTree = "<group>"; };
 		B590161221ED4A0F00799178 /* Utf8.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Utf8.h; path = source/text/Utf8.h; sourceTree = "<group>"; };
 		B590162021ED4A0F00799178 /* DisplayText.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DisplayText.h; path = source/text/DisplayText.h; sourceTree = "<group>"; };
+		B590161421ED4A0E00799178 /* Gettext.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Gettext.cpp; path = source/text/Gettext.cpp; sourceTree = "<group>"; };
+		B590161521ED4A0F00799178 /* Gettext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Gettext.h; path = source/text/Gettext.h; sourceTree = "<group>"; };
+		B590161721ED4A0E00799178 /* Languages.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Languages.cpp; path = source/Languages.cpp; sourceTree = "<group>"; };
+		B590161821ED4A0F00799178 /* Languages.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Languages.h; path = source/Languages.h; sourceTree = "<group>"; };
 		B5DDA6922001B7F600DBA76A /* News.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = News.cpp; path = source/News.cpp; sourceTree = "<group>"; };
 		B5DDA6932001B7F600DBA76A /* News.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = News.h; path = source/News.h; sourceTree = "<group>"; };
 		C49D4EA08DF168A83B1C7B07 /* Hazard.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Hazard.cpp; path = source/Hazard.cpp; sourceTree = "<group>"; };
@@ -505,6 +511,12 @@
 		DFAAE2A91FD4A27B0072C0A8 /* ImageSet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ImageSet.h; path = source/ImageSet.h; sourceTree = "<group>"; };
 		F434470BA8F3DE8B46D475C5 /* StartConditionsPanel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = StartConditionsPanel.h; path = source/StartConditionsPanel.h; sourceTree = "<group>"; };
 		F8C14CFB89472482F77C051D /* Weather.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Weather.h; path = source/Weather.h; sourceTree = "<group>"; };
+		B590161A21ED4A0F00799178 /* spiritless_po/Catalog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Catalog.h; path = source/spiritless_po/Catalog.h; sourceTree = "<group>"; };
+		B590161B21ED4A0F00799178 /* spiritless_po/Common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Common.h; path = source/spiritless_po/Common.h; sourceTree = "<group>"; };
+		B590161C21ED4A0F00799178 /* spiritless_po/MetadataParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MetadataParser.h; path = source/spiritless_po/MetadataParser.h; sourceTree = "<group>"; };
+		B590161D21ED4A0F00799178 /* spiritless_po/PluralParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PluralParser.h; path = source/spiritless_po/PluralParser.h; sourceTree = "<group>"; };
+		B590161E21ED4A0F00799178 /* spiritless_po/PoParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PoParser.h; path = source/spiritless_po/PoParser.h; sourceTree = "<group>"; };
+		B590161F21ED4A0F00799178 /* spiritless_po/spiritless_po.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = spiritless_po.h; path = source/spiritless_po/spiritless_po.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -630,6 +642,8 @@
 				A96863191AE6FD0B004FE1FE /* GameEvent.h */,
 				B55C239B2303CE8A005C1A14 /* GameWindow.cpp */,
 				B55C239C2303CE8A005C1A14 /* GameWindow.h */,
+				B590161421ED4A0E00799178 /* Gettext.cpp */,
+				B590161521ED4A0F00799178 /* Gettext.h */,
 				A968631A1AE6FD0B004FE1FE /* gl_header.h */,
 				A968631B1AE6FD0B004FE1FE /* Government.cpp */,
 				A968631C1AE6FD0B004FE1FE /* Government.h */,
@@ -649,6 +663,8 @@
 				DFAAE2A91FD4A27B0072C0A8 /* ImageSet.h */,
 				A9B99D001C616AD000BE7C2E /* ItemInfoDisplay.cpp */,
 				A9B99D011C616AD000BE7C2E /* ItemInfoDisplay.h */,
+				B590161721ED4A0E00799178 /* Languages.cpp */,
+				B590161821ED4A0F00799178 /* Languages.h */,
 				A96863291AE6FD0B004FE1FE /* LineShader.cpp */,
 				A968632A1AE6FD0B004FE1FE /* LineShader.h */,
 				A968632B1AE6FD0B004FE1FE /* LoadPanel.cpp */,
@@ -810,6 +826,12 @@
 				F434470BA8F3DE8B46D475C5 /* StartConditionsPanel.h */,
 				0DF34095B64BC64F666ECF5F /* CoreStartData.cpp */,
 				98104FFDA18E40F4A712A8BE /* CoreStartData.h */,
+				B590161A21ED4A0F00799178 /* spiritless_po/Catalog.h */,
+				B590161B21ED4A0F00799178 /* spiritless_po/Common.h */,
+				B590161C21ED4A0F00799178 /* spiritless_po/MetadataParser.h */,
+				B590161D21ED4A0F00799178 /* spiritless_po/PluralParser.h */,
+				B590161E21ED4A0F00799178 /* spiritless_po/PoParser.h */,
+				B590161F21ED4A0F00799178 /* spiritless_po/spiritless_po.h */
 			);
 			name = source;
 			sourceTree = "<group>";
@@ -1087,6 +1109,8 @@
 				6A5716331E25BE6F00585EB2 /* CollisionSet.cpp in Sources */,
 				A96863E11AE6FD0E004FE1FE /* Personality.cpp in Sources */,
 				B590161021ED49F300799178 /* Cache.cpp in Sources */,
+				B590161621ED4A0F00799178 /* Gettext.cpp in Sources */,
+				B590161921ED4A0F00799178 /* Languages.cpp in Sources */,
 				A96863B41AE6FD0E004FE1FE /* Date.cpp in Sources */,
 				DF8D57E51FC25889001525DA /* Visual.cpp in Sources */,
 				A96863EF1AE6FD0E004FE1FE /* SavedGame.cpp in Sources */,

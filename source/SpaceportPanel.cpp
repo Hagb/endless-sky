@@ -17,7 +17,9 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/DisplayText.h"
 #include "text/Font.h"
 #include "text/FontSet.h"
+#include "text/Format.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Interface.h"
 #include "text/layout.hpp"
 #include "News.h"
@@ -28,21 +30,30 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "UI.h"
 
 using namespace std;
+using namespace Gettext;
 
 
 
 SpaceportPanel::SpaceportPanel(PlayerInfo &player)
-	: player(player)
+	: player(player), updateCatalog([this](){ UpdateTranslation(); })
 {
 	SetTrapAllEvents(false);
 	
 	text = player.GetPlanet()->SpaceportDescription();
+	AddHookUpdating(&updateCatalog);
 	
 	// Query the news interface to find out the wrap width.
 	// TODO: Allow Interface to handle wrapped text directly.
 	const Interface *interface = GameData::Interfaces().Get("news");
 	portraitWidth = interface->GetBox("message portrait").Width();
 	normalWidth = interface->GetBox("message").Width();
+}
+
+
+
+SpaceportPanel::~SpaceportPanel()
+{
+	RemoveHookUpdating(&updateCatalog);
 }
 
 
@@ -60,7 +71,7 @@ void SpaceportPanel::UpdateNews()
 	// Cache the randomly picked results until the next update is requested.
 	hasPortrait = portrait;
 	newsInfo.SetSprite("portrait", portrait);
-	newsInfo.SetString("name", news->Name() + ':');
+	newsInfo.SetString("name", Format::StringF(T("%1%:"), news->Name()));
 	newsMessage = news->Message();
 }
 
@@ -121,4 +132,13 @@ const News *SpaceportPanel::PickNews() const
 			matches.push_back(&it.second);
 	
 	return matches.empty() ? nullptr : matches[Random::Int(matches.size())];
+}
+
+
+
+void SpaceportPanel::UpdateTranslation()
+{
+	const Planet *p = player.GetPlanet();
+	if(p)
+		text = p->SpaceportDescription();
 }

@@ -23,6 +23,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <cmath>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	const double EPS = 0.0000000001;
@@ -103,15 +104,15 @@ namespace {
 }
 
 const vector<string> Outfit::CATEGORIES = {
-	"Guns",
-	"Turrets",
-	"Secondary Weapons",
-	"Ammunition",
-	"Systems",
-	"Power",
-	"Engines",
-	"Hand to Hand",
-	"Special"
+	G("Guns"),
+	G("Turrets"),
+	G("Secondary Weapons"),
+	G("Ammunition"),
+	G("Systems"),
+	G("Power"),
+	G("Engines"),
+	G("Hand to Hand"),
+	G("Special")
 };
 
 
@@ -183,8 +184,8 @@ void Outfit::Load(const DataNode &node)
 		}
 		else if(child.Token(0) == "description" && child.Size() >= 2)
 		{
-			description += child.Token(1);
-			description += '\n';
+			description.emplace_back(child.Token(1));
+			description.push_back(Tx("\n"));
 		}
 		else if(child.Token(0) == "cost" && child.Size() >= 2)
 			cost = child.Value(1);
@@ -252,11 +253,9 @@ bool Outfit::IsDefined() const
 
 
 
-// When writing to the player's save, the reference name is used even if this
-// outfit was not fully defined (i.e. belongs to an inactive plugin).
-const string &Outfit::Name() const
+string Outfit::Name(unsigned long n) const
 {
-	return name;
+	return nT(name, pluralName, "outfit", n);
 }
 
 
@@ -264,13 +263,23 @@ const string &Outfit::Name() const
 void Outfit::SetName(const string &name)
 {
 	this->name = name;
+	this->pluralName = name + 's';
 }
 
 
 
-const string &Outfit::PluralName() const
+string Outfit::PluralName() const
 {
-	return pluralName;
+	return T(pluralName, "outfit");
+}
+
+
+
+// When writing to the player's save, the reference name is used even if this
+// outfit was not fully defined (i.e. belongs to an inactive plugin).
+const string &Outfit::TrueName() const
+{
+	return name;
 }
 
 
@@ -282,9 +291,9 @@ const string &Outfit::Category() const
 
 
 
-const string &Outfit::Description() const
+string Outfit::Description() const
 {
-	return description;
+	return Concat(description);
 }
 
 

@@ -25,12 +25,14 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "System.h"
 
 #include <algorithm>
+#include <set>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
-	const string WORMHOLE = "wormhole";
-	const string PLANET = "planet";
+	const T_ WORMHOLE = T_("wormhole");
+	const T_ PLANET = T_("planet");
 	
 	// Planet attributes in the form "requires: <attribute>" restrict the ability of ships to land
 	// unless the ship has all required attributes.
@@ -54,6 +56,7 @@ void Planet::Load(const DataNode &node)
 	if(node.Size() < 2)
 		return;
 	name = node.Token(1);
+	displayName = T_(name, "planet");
 	// The planet's name is needed to save references to this object, so a
 	// flag is used to test whether Load() was called at least once for it.
 	isDefined = true;
@@ -163,11 +166,11 @@ void Planet::Load(const DataNode &node)
 			music = value;
 		else if(key == "description" || key == "spaceport")
 		{
-			string &text = (key == "description") ? description : spaceport;
-			if(!text.empty() && !value.empty() && value[0] > ' ')
-				text += '\t';
-			text += value;
-			text += '\n';
+			vector<T_> &text = (key == "description") ? description : spaceport;
+			if(!IsEmptyText(text) && !value.empty() && static_cast<unsigned char>(value[0]) > ' ')
+				text.push_back(Tx("\t"));
+			text.emplace_back(value);
+			text.push_back(Tx("\n"));
 		}
 		else if(key == "government")
 			government = GameData::Governments().Get(value);
@@ -215,7 +218,7 @@ void Planet::Load(const DataNode &node)
 	}
 	
 	static const vector<string> AUTO_ATTRIBUTES = {"spaceport", "shipyard", "outfitter"};
-	bool autoValues[3] = {!spaceport.empty(), !shipSales.empty(), !outfitSales.empty()};
+	bool autoValues[3] = {!IsEmptyText(spaceport), !shipSales.empty(), !outfitSales.empty()};
 	for(unsigned i = 0; i < AUTO_ATTRIBUTES.size(); ++i)
 	{
 		if(autoValues[i])
@@ -240,13 +243,13 @@ bool Planet::IsValid() const
 
 
 // Get the name of the planet.
-const string &Planet::Name() const
+string Planet::Name() const
 {
-	static const string UNKNOWN = "???";
+	static const T_ UNKNOWN = T_("???", "Planet");
 	if(IsWormhole())
-		return UNKNOWN;
+		return UNKNOWN.Str();
 	
-	return name;
+	return displayName.Str();
 }
 
 
@@ -254,11 +257,14 @@ const string &Planet::Name() const
 void Planet::SetName(const string &name)
 {
 	this->name = name;
+	this->displayName = T_(name, "Planet");
 }
 
 
 
-// Get the name used for this planet in the data files.
+// Get the internal name used for this planet. This name is unique and
+// never modified by translation, so it can be used in condition
+// variables, etc.
 const string &Planet::TrueName() const
 {
 	return name;
@@ -267,9 +273,9 @@ const string &Planet::TrueName() const
 
 
 // Get the planet's descriptive text.
-const string &Planet::Description() const
+string Planet::Description() const
 {
-	return description;
+	return Concat(description);
 }
 
 
@@ -299,16 +305,17 @@ const set<string> &Planet::Attributes() const
 
 
 // Get planet's noun descriptor from attributes
-const string &Planet::Noun() const
+// This function may return a translated text.
+string Planet::Noun() const
 {
 	if(IsWormhole())
-		return WORMHOLE;
+		return WORMHOLE.Str();
 	
 	for(const string &attribute : attributes)
-		if(attribute == "moon" || attribute == "station")
-			return attribute;
+		if(attribute == G("moon") || attribute == G("station"))
+			return T(attribute);
 	
-	return PLANET;
+	return PLANET.Str();
 }
 
 
@@ -317,15 +324,15 @@ const string &Planet::Noun() const
 // jobs, banking, and hiring).
 bool Planet::HasSpaceport() const
 {
-	return !spaceport.empty();
+	return !IsEmptyText(spaceport);
 }
 
 
 
 // Get the spaceport's descriptive text.
-const string &Planet::SpaceportDescription() const
+string Planet::SpaceportDescription() const
 {
-	return spaceport;
+	return Concat(spaceport);
 }
 
 
@@ -560,11 +567,11 @@ void Planet::Bribe(bool fullAccess) const
 string Planet::DemandTribute(PlayerInfo &player) const
 {
 	if(player.GetCondition("tribute: " + name))
-		return "We are already paying you as much as we can afford.";
+		return T("We are already paying you as much as we can afford.");
 	if(!tribute || defenseFleets.empty())
-		return "Please don't joke about that sort of thing.";
+		return T("Please don't joke about that sort of thing.");
 	if(player.GetCondition("combat rating") < defenseThreshold)
-		return "You're not worthy of our time.";
+		return T("You're not worthy of our time.");
 	
 	// The player is scary enough for this planet to take notice. Check whether
 	// this is the first demand for tribute, or not.
@@ -578,7 +585,7 @@ string Planet::DemandTribute(PlayerInfo &player) const
 			gov->Offend(ShipEvent::PROVOKE);
 		// Terrorizing a planet is not taken lightly by it or its allies.
 		GetGovernment()->Offend(ShipEvent::ATROCITY);
-		return "Our defense fleet will make short work of you.";
+		return T("Our defense fleet will make short work of you.");
 	}
 	
 	// The player has already demanded tribute. Have they defeated the entire defense fleet?
@@ -591,11 +598,12 @@ string Planet::DemandTribute(PlayerInfo &player) const
 		}
 	
 	if(!isDefeated)
-		return "We're not ready to surrender yet.";
+		return T("We're not ready to surrender yet.");
 	
 	player.Conditions()["tribute: " + name] = tribute;
 	GameData::GetPolitics().DominatePlanet(this);
-	return "We surrender. We will pay you " + Format::Credits(tribute) + " credits per day to leave us alone.";
+	return Format::StringF(T("We surrender. We will pay you %1% credits per day to leave us alone."),
+		Format::Credits(tribute));
 }
 
 

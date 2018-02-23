@@ -21,8 +21,10 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/FontUtilities.h"
 #include "text/Format.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Government.h"
 #include "Hardpoint.h"
+#include "Languages.h"
 #include "Messages.h"
 #include "Mission.h"
 #include "Outfit.h"
@@ -47,6 +49,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <stdexcept>
 
 using namespace std;
+using namespace Gettext;
 
 
 
@@ -117,8 +120,12 @@ void PlayerInfo::New(const StartConditions &start)
 // Load player information from a saved game file.
 void PlayerInfo::Load(const string &path)
 {
+	const string sep = T("\n\t", "dialog paragraph separator");
+	
 	// Make sure any previously loaded data is cleared.
 	Clear();
+	// Avoid to translate a saved game file.
+	StopTranslating();
 	
 	filePath = path;
 	// Strip anything after the "~" from snapshots, so that the file we save
@@ -270,7 +277,7 @@ void PlayerInfo::Load(const string &path)
 					for(const DataNode &great : grand)
 					{
 						if(!text.empty())
-							text += "\n\t";
+							text += sep;
 						text += great.Token(0);
 					}
 					logbook.emplace(date, text);
@@ -281,7 +288,7 @@ void PlayerInfo::Load(const string &path)
 					for(const DataNode &great : grand)
 					{
 						if(!text.empty())
-							text += "\n\t";
+							text += sep;
 						text += great.Token(0);
 					}
 				}
@@ -290,6 +297,9 @@ void PlayerInfo::Load(const string &path)
 		else if(child.Token(0) == "start")
 			startData.Load(child);
 	}
+	
+	RestartTranslating();
+	
 	// Modify the game data with any changes that were loaded from this file.
 	ApplyChanges();
 	// Ensure the player is in a valid state after loading & applying changes.
@@ -549,7 +559,8 @@ void PlayerInfo::IncrementDate()
 	// Check if any missions have failed because of deadlines.
 	for(Mission &mission : missions)
 		if(mission.CheckDeadline(date) && mission.IsVisible())
-			Messages::Add("You failed to meet the deadline for the mission \"" + mission.Name() + "\".");
+			Messages::Add(Format::StringF(T("You failed to meet the deadline for the mission \"%1%\"."),
+				mission.Name()));
 	
 	// Check what salaries and tribute the player receives.
 	int64_t total[2] = {0, 0};
@@ -562,14 +573,14 @@ void PlayerInfo::IncrementDate()
 	}
 	if(total[0] || total[1])
 	{
-		string message = "You receive ";
+		string message = T("You receive ");
 		if(total[0])
-			message += Format::Credits(total[0]) + " credits salary";
+			message += Format::StringF(T("%1% credits salary"), Format::Credits(total[0]));
 		if(total[0] && total[1])
-			message += " and ";
+			message += T(" and ", "salary and tribute");
 		if(total[1])
-			message += Format::Credits(total[1]) + " credits in tribute";
-		message += ".";
+			message += Format::StringF(T("%1% credits in tribute"), Format::Credits(total[0]));
+		message += T(".", "salary and tribute");
 		Messages::Add(message);
 		accounts.AddCredits(total[0] + total[1]);
 	}
@@ -1198,17 +1209,18 @@ void PlayerInfo::Land(UI *ui)
 	// do not name them all (since this would overflow the screen).
 	else if(ui && !inactiveMissions.empty())
 	{
-		string message = "These active missions or jobs were deactivated due to a missing definition - perhaps you recently removed a plugin?\n";
+		string message = T("These active missions or jobs were deactivated due to a missing definition - perhaps you recently removed a plugin?\n");
 		auto mit = inactiveMissions.rbegin();
 		int named = 0;
 		while(mit != inactiveMissions.rend() && (++named < 10))
 		{
-			message += "\t\"" + mit->Name() + "\"\n";
+			message += Format::StringF(T("\t\"%1%\"\n", "inactive missions"), mit->Name());
 			++mit;
 		}
 		if(mit != inactiveMissions.rend())
-			message += " and " + to_string(distance(mit, inactiveMissions.rend())) + " more.\n";
-		message += "They will be reactivated when the necessary plugin is reinstalled.";
+			message += Format::StringF(T(" and %1% more.\n", "inactive missions"),
+				to_string(distance(mit, inactiveMissions.rend())));
+		message += T("They will be reactivated when the necessary plugin is reinstalled.");
 		ui->Push(new Dialog(message));
 	}
 	
@@ -1220,9 +1232,8 @@ void PlayerInfo::Land(UI *ui)
 		if(added > 0)
 		{
 			flagship->AddCrew(added);
-			Messages::Add("You hire " + to_string(added) + (added == 1
-					? " extra crew member to fill your now-empty bunk."
-					: " extra crew members to fill your now-empty bunks."));
+			Messages::Add(Format::StringF(nT("You hire %1% extra crew member to fill your now-empty bunk.",
+				"You hire %1% extra crew members to fill your now-empty bunks.", added), to_string(added)));
 		}
 	}
 	
@@ -1325,7 +1336,8 @@ bool PlayerInfo::TakeOff(UI *ui)
 		if(extra)
 		{
 			flagship->AddCrew(-extra);
-			Messages::Add("You fired " + to_string(extra) + " crew members to free up bunks for passengers.");
+			Messages::Add(Format::StringF(T("You fired %1% crew members to free up bunks for passengers."),
+				to_string(extra)));
 			flagship->Cargo().SetBunks(flagship->Attributes().Get("bunks") - flagship->Crew());
 			cargo.TransferAll(flagship->Cargo());
 		}
@@ -1335,7 +1347,8 @@ bool PlayerInfo::TakeOff(UI *ui)
 	if(extra > 0)
 	{
 		flagship->AddCrew(-extra);
-		Messages::Add("You fired " + to_string(extra) + " crew members because you have no bunks for them.");
+		Messages::Add(Format::StringF(T("You fired %1% crew members because you have no bunks for them."),
+			to_string(extra)));
 		flagship->Cargo().SetBunks(flagship->Attributes().Get("bunks") - flagship->Crew());
 	}
 	
@@ -1374,11 +1387,9 @@ bool PlayerInfo::TakeOff(UI *ui)
 		}
 		
 		if(uncarried)
-		{
 			// The remaining uncarried ships are launched alongside the player.
-			string message = (uncarried > 1) ? "Some escorts were" : "One escort was";
-			Messages::Add(message + " unable to dock with a carrier.");
-		}
+			Messages::Add(nT("One escort was unable to dock with a carrier.",
+				"Some escorts were unable to dock with a carrier.", uncarried));
 	}
 	
 	// By now, all cargo should have been divvied up among your ships. So, any
@@ -1389,16 +1400,16 @@ bool PlayerInfo::TakeOff(UI *ui)
 		if(it.second)
 		{
 			if(it.first->IsVisible())
-				Messages::Add("Mission \"" + it.first->Name()
-					+ "\" failed because you do not have space for the cargo.");
+				Messages::Add(Format::StringF(T("Mission \"%1%\" failed because "
+					"you do not have space for the cargo."), it.first->Name()));
 			missionsToRemove.push_back(it.first);
 		}
 	for(const auto &it : cargo.PassengerList())
 		if(it.second)
 		{
 			if(it.first->IsVisible())
-				Messages::Add("Mission \"" + it.first->Name()
-					+ "\" failed because you do not have enough passenger bunks free.");
+				Messages::Add(Format::StringF(T("Mission \"%1%\" failed because "
+					"you do not have enough passenger bunks free."), it.first->Name()));
 			missionsToRemove.push_back(it.first);
 			
 		}
@@ -1450,13 +1461,13 @@ bool PlayerInfo::TakeOff(UI *ui)
 	if(sold)
 	{
 		// Report how much excess cargo was sold, and what profit you earned.
-		ostringstream out;
-		out << "You sold " << sold << " tons of excess cargo for " << Format::Credits(income) << " credits";
+		string message = Format::StringF(T("You sold %1% tons of excess cargo for %2% credits"),
+			to_string(sold), Format::Credits(income));
 		if(totalBasis && totalBasis != income)
-			out << " (for a profit of " << (income - totalBasis) << " credits).";
+			message += Format::StringF(T(" (for a profit of %1% credits)."), to_string(income - totalBasis));
 		else
-			out << ".";
-		Messages::Add(out.str());
+			message += T(".", "excess");
+		Messages::Add(message);
 	}
 	
 	return true;
@@ -1504,7 +1515,7 @@ void PlayerInfo::AddSpecialLog(const string &type, const string &name, const str
 {
 	string &entry = specialLogs[type][name];
 	if(!entry.empty())
-		entry += "\n\t";
+		entry += T("\n\t", "dialog paragraph separator");
 	entry += text;
 }
 
@@ -2395,7 +2406,8 @@ void PlayerInfo::ValidateLoad()
 		{
 			planet = (*it)->GetPlanet();
 			system = (*it)->GetSystem();
-			warning += ". Defaulting to location of flagship \"" + (*it)->Name() + "\", " + planet->TrueName() + ".";
+			warning += ". Defaulting to location of flagship \"" + FontUtilities::Unescape((*it)->Name())
+				+ "\", " + planet->TrueName() + ".";
 		}
 		else
 			warning += " (no ships could supply a valid player location).";
@@ -2540,7 +2552,7 @@ void PlayerInfo::UpdateAutoConditions(bool isBoarding)
 		conditions["flagship required crew"] = flagship->RequiredCrew();
 		conditions["flagship bunks"] = flagship->Attributes().Get("bunks");
 		if(flagship->GetSystem())
-			conditions["flagship system: " + flagship->GetSystem()->Name()] = 1;
+			conditions["flagship system: " + flagship->GetSystem()->TrueName()] = 1;
 		if(flagship->GetPlanet())
 			conditions["flagship planet: " + flagship->GetPlanet()->TrueName()] = 1;
 	}
@@ -2640,7 +2652,8 @@ void PlayerInfo::StepMissions(UI *ui)
 	int missionVisits = 0;
 	auto substitutions = map<string, string>{
 		{"<first>", firstName},
-		{"<last>", lastName}
+		{"<last>", lastName},
+		{"<fullname>", Languages::GetFullname(firstName, lastName)}
 	};
 	if(Flagship())
 		substitutions["<ship>"] = Flagship()->Name();
@@ -2679,8 +2692,9 @@ void PlayerInfo::StepMissions(UI *ui)
 	if(!visitText.empty())
 	{
 		if(missionVisits > 1)
-			visitText += "\n\t(You have " + Format::Number(missionVisits - 1) + " other unfinished " 
-				+ ((missionVisits > 2) ? "missions" : "mission") + " at this location.)";
+			visitText += Format::StringF(nT("\n\t(You have %1% other unfinished mission at this location.)",
+				"\n\t(You have %1% other unfinished missions at this location.)", missionVisits - 1),
+				Format::Number(missionVisits - 1));
 		ui->Push(new Dialog(visitText));
 	}
 	// One mission's actions may influence another mission, so loop through one
@@ -2740,7 +2754,7 @@ void PlayerInfo::Save(const string &path) const
 	out.Write("pilot", FontUtilities::Unescape(firstName), FontUtilities::Unescape(lastName));
 	out.Write("date", date.Day(), date.Month(), date.Year());
 	if(system)
-		out.Write("system", system->Name());
+		out.Write("system", system->TrueName());
 	if(planet)
 		out.Write("planet", planet->TrueName());
 	if(planet && planet->CanUseServices())
@@ -2751,7 +2765,7 @@ void PlayerInfo::Save(const string &path) const
 	if(shouldLaunch)
 		out.Write("launching");
 	for(const System *system : travelPlan)
-		out.Write("travel", system->Name());
+		out.Write("travel", system->TrueName());
 	if(travelDestination)
 		out.Write("travel destination", travelDestination->TrueName());
 	
@@ -2838,11 +2852,11 @@ void PlayerInfo::Save(const string &path) const
 			using StockElement = pair<const Outfit *const, int>;
 			WriteSorted(stock,
 				[](const StockElement *lhs, const StockElement *rhs)
-					{ return lhs->first->Name() < rhs->first->Name(); },
+					{ return lhs->first->TrueName() < rhs->first->TrueName(); },
 				[&out](const StockElement &it)
 				{
 					if(it.second)
-						out.Write(it.first->Name(), it.second);
+						out.Write(it.first->TrueName(), it.second);
 				});
 		}
 		out.EndChild();
@@ -2911,10 +2925,10 @@ void PlayerInfo::Save(const string &path) const
 	// Save a list of systems the player has visited.
 	WriteSorted(visitedSystems,
 		[](const System *const *lhs, const System *const *rhs)
-			{ return (*lhs)->Name() < (*rhs)->Name(); },
+			{ return (*lhs)->TrueName() < (*rhs)->TrueName(); },
 		[&out](const System *system)
 		{
-			out.Write("visited", system->Name());
+			out.Write("visited", system->TrueName());
 		});
 	
 	// Save a list of planets the player has visited.
@@ -2937,13 +2951,13 @@ void PlayerInfo::Save(const string &path) const
 				{
 					// Sort by system name and then by outfit name.
 					if(lhs->first != rhs->first)
-						return lhs->first->Name() < rhs->first->Name();
+						return lhs->first->TrueName() < rhs->first->TrueName();
 					else
-						return lhs->second->Name() < rhs->second->Name();
+						return lhs->second->TrueName() < rhs->second->TrueName();
 				},
 				[&out](const HarvestLog &it)
 				{
-					out.Write(it.first->Name(), it.second->Name());
+					out.Write(it.first->TrueName(), it.second->TrueName());
 				});
 		}
 		out.EndChild();
@@ -2958,7 +2972,7 @@ void PlayerInfo::Save(const string &path) const
 			out.BeginChild();
 			{
 				// Break the text up into paragraphs.
-				for(const string &line : Format::Split(it.second, "\n\t"))
+				for(const string &line : Format::Split(it.second, T("\n\t", "dialog paragraph separator")))
 					out.Write(line);
 			}
 			out.EndChild();
@@ -2970,7 +2984,7 @@ void PlayerInfo::Save(const string &path) const
 				out.BeginChild();
 				{
 					// Break the text up into paragraphs.
-					for(const string &line : Format::Split(eit.second, "\n\t"))
+					for(const string &line : Format::Split(eit.second, T("\n\t", "dialog paragraph separator")))
 						out.Write(line);
 				}
 				out.EndChild();
@@ -3018,12 +3032,12 @@ void PlayerInfo::Fine(UI *ui)
 				ui->Push(new ConversationPanel(*this, *conversation));
 			else
 			{
-				message = "Before you can leave your ship, the " + gov->GetName()
-					+ " authorities show up and begin scanning it. They say, \"Captain "
-					+ LastName()
-					+ ", we detect highly illegal material on your ship.\""
+				message = Format::StringF(T("Before you can leave your ship, the %1%"
+					" authorities show up and begin scanning it. They say, \"Captain %2%"
+					", we detect highly illegal material on your ship.\""
 					"\n\tYou are sentenced to lifetime imprisonment on a penal colony."
-					" Your days of traveling the stars have come to an end.";
+					" Your days of traveling the stars have come to an end."),
+					gov->GetName(), LastName());
 				ui->Push(new Dialog(message));
 			}
 			// All ships belonging to the player should be removed.

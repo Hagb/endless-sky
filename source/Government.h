@@ -15,6 +15,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include "Color.h"
 #include "LocationFilter.h"
+#include "text/Gettext.h"
 
 #include <map>
 #include <string>
@@ -120,7 +121,7 @@ public:
 private:
 	unsigned id;
 	std::string name;
-	std::string displayName;
+	Gettext::T_ displayName;
 	int swizzle = 0;
 	Color color;
 	

@@ -19,7 +19,9 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Files.h"
 #include "text/Font.h"
 #include "text/FontSet.h"
+#include "text/FontUtilities.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Information.h"
 #include "Interface.h"
 #include "text/layout.hpp"
@@ -39,23 +41,26 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <algorithm>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	// Settings that require special handling.
-	const string ZOOM_FACTOR = "Main zoom factor";
+	const string ZOOM_FACTOR = G("Main zoom factor");
 	const int ZOOM_FACTOR_MIN = 100;
 	const int ZOOM_FACTOR_MAX = 200;
 	const int ZOOM_FACTOR_INCREMENT = 10;
-	const string VIEW_ZOOM_FACTOR = "View zoom factor";
-	const string VSYNC_SETTING = "VSync";
-	const string EXPEND_AMMO = "Escorts expend ammo";
-	const string TURRET_TRACKING = "Turret tracking";
+	const string VIEW_ZOOM_FACTOR = G("View zoom factor");
+	const string VSYNC_SETTING = G("VSync");
+	const string EXPEND_AMMO = G("Escorts expend ammo");
+	const string TURRET_TRACKING = G("Turret tracking");
 	const string FOCUS_PREFERENCE = "Turrets focus fire";
 	const string FRUGAL_ESCORTS = "Escorts use ammo frugally";
-	const string REACTIVATE_HELP = "Reactivate first-time help";
-	const string SCROLL_SPEED = "Scroll speed";
-	const string FIGHTER_REPAIR = "Repair fighters in";
-	const string SHIP_OUTLINES = "Ship outlines in shops";
+	const string REACTIVATE_HELP = G("Reactivate first-time help");
+	const string SCROLL_SPEED = G("Scroll speed");
+	const string FIGHTER_REPAIR = G("Repair fighters in");
+	const string SHIP_OUTLINES = G("Ship outlines in shops");
+	const string LANGUAGE = G("Language");
+	const string FULLNAME = G("Fullname format");
 }
 
 
@@ -156,7 +161,7 @@ bool PreferencesPanel::Click(int x, int y, int clicks)
 					// otherwise the dialog will show every time, which is annoying.
 					if(newZoom == ZOOM_FACTOR_MIN + ZOOM_FACTOR_INCREMENT)
 						GetUI()->Push(new Dialog(
-							"Your screen resolution is too low to support a zoom level above 100%."));
+							T("Your screen resolution is too low to support a zoom level above 100%.")));
 					Screen::SetZoom(ZOOM_FACTOR_MIN);
 				}
 				// Convert to raw window coordinates, at the new zoom level.
@@ -175,7 +180,7 @@ bool PreferencesPanel::Click(int x, int y, int clicks)
 			{
 				if(!Preferences::ToggleVSync())
 					GetUI()->Push(new Dialog(
-						"Unable to change VSync state. (Your system's graphics settings may be controlling it instead.)"));
+						T("Unable to change VSync state. (Your system's graphics settings may be controlling it instead.)")));
 			}
 			else if(zone.Value() == EXPEND_AMMO)
 				Preferences::ToggleAmmoUsage();
@@ -194,6 +199,10 @@ bool PreferencesPanel::Click(int x, int y, int clicks)
 					speed = 20;
 				Preferences::SetScrollSpeed(speed);
 			}
+			else if(zone.Value() == LANGUAGE)
+				Preferences::ToggleLanguage();
+			else if(zone.Value() == FULLNAME)
+				Preferences::ToggleFullnameFormat();
 			// All other options are handled by just toggling the boolean state.
 			else
 				Preferences::Set(zone.Value(), !Preferences::Has(zone.Value()));
@@ -306,11 +315,11 @@ void PreferencesPanel::DrawControls()
 	table.DrawAt(Point(-130, firstY));
 	
 	static const string CATEGORIES[] = {
-		"Navigation",
-		"Weapons",
-		"Targeting",
-		"Interface",
-		"Fleet"
+		G("Navigation"),
+		G("Weapons"),
+		G("Targeting"),
+		G("Interface"),
+		G("Fleet")
 	};
 	const string *category = CATEGORIES;
 	static const Command COMMANDS[] = {
@@ -358,10 +367,10 @@ void PreferencesPanel::DrawControls()
 			table.DrawGap(10);
 			table.DrawUnderline(medium);
 			if(category != end(CATEGORIES))
-				table.Draw(*category++, bright);
+				table.Draw(T(*category++), bright);
 			else
 				table.Advance();
-			table.Draw("Key", bright);
+			table.Draw(T("Key"), bright);
 			table.DrawGap(5);
 		}
 		else
@@ -402,12 +411,12 @@ void PreferencesPanel::DrawControls()
 	shiftTable.DrawAt(Point(-400, 52));
 	
 	shiftTable.DrawUnderline(medium);
-	shiftTable.Draw("With &lt;shift&gt; key", bright);
+	shiftTable.Draw(T("With &lt;shift&gt; key"), bright);
 	shiftTable.DrawGap(5);
-	shiftTable.Draw("Select nearest ship", medium);
-	shiftTable.Draw("Select next escort", medium);
-	shiftTable.Draw("Talk to planet", medium);
-	shiftTable.Draw("Board disabled escort", medium);
+	shiftTable.Draw(T("Select nearest ship"), medium);
+	shiftTable.Draw(T("Select next escort"), medium);
+	shiftTable.Draw(T("Talk to planet"), medium);
+	shiftTable.Draw(T("Board disabled escort"), medium);
 }
 
 
@@ -428,42 +437,44 @@ void PreferencesPanel::DrawSettings()
 	table.DrawAt(Point(-130, firstY));
 	
 	static const string SETTINGS[] = {
-		"Display",
+		G("Display"),
 		ZOOM_FACTOR,
 		VIEW_ZOOM_FACTOR,
 		VSYNC_SETTING,
-		"Show status overlays",
-		"Highlight player's flagship",
-		"Rotate flagship in HUD",
-		"Show planet labels",
-		"Show mini-map",
+		G("Show status overlays"),
+		G("Highlight player's flagship"),
+		G("Rotate flagship in HUD"),
+		G("Show planet labels"),
+		G("Show mini-map"),
 		"",
-		"AI",
-		"Automatic aiming",
-		"Automatic firing",
+		G("AI"),
+		G("Automatic aiming"),
+		G("Automatic firing"),
 		EXPEND_AMMO,
 		FIGHTER_REPAIR,
 		TURRET_TRACKING,
 		"\n",
-		"Performance",
-		"Show CPU / GPU load",
-		"Render motion blur",
-		"Reduce large graphics",
-		"Draw background haze",
-		"Draw starfield",
-		"Show hyperspace flash",
+		G("Performance"),
+		G("Show CPU / GPU load"),
+		G("Render motion blur"),
+		G("Reduce large graphics"),
+		G("Draw background haze"),
+		G("Draw starfield"),
+		G("Show hyperspace flash"),
 		SHIP_OUTLINES,
 		"",
-		"Other",
-		"Clickable radar display",
-		"Hide unexplored map regions",
+		G("Other"),
+		G("Clickable radar display"),
+		G("Hide unexplored map regions"),
 		REACTIVATE_HELP,
-		"Interrupt fast-forward",
-		"Rehire extra crew when lost",
+		G("Interrupt fast-forward"),
+		G("Rehire extra crew when lost"),
 		SCROLL_SPEED,
-		"Show escort systems on map",
-		"System map sends move orders",
-		"Warning siren"
+		G("Show escort systems on map"),
+		G("System map sends move orders"),
+		G("Warning siren"),
+		LANGUAGE,
+		FULLNAME
 	};
 	bool isCategory = true;
 	for(const string &setting : SETTINGS)
@@ -482,7 +493,7 @@ void PreferencesPanel::DrawSettings()
 			isCategory = false;
 			table.DrawGap(10);
 			table.DrawUnderline(medium);
-			table.Draw(setting, bright);
+			table.Draw(T(setting), bright);
 			table.Advance();
 			table.DrawGap(5);
 			continue;
@@ -509,28 +520,29 @@ void PreferencesPanel::DrawSettings()
 		{
 			text = Preferences::VSyncSetting();
 			isOn = text != "off";
+			text = T(text, "vsync");
 		}
 		else if(setting == EXPEND_AMMO)
-			text = Preferences::AmmoUsage();
+			text = T(Preferences::AmmoUsage());
 		else if(setting == TURRET_TRACKING)
 		{
 			isOn = true;
-			text = Preferences::Has(FOCUS_PREFERENCE) ? "focused" : "opportunistic";
+			text = Preferences::Has(FOCUS_PREFERENCE) ? T("focused") : T("opportunistic");
 		}
 		else if(setting == FIGHTER_REPAIR)
 		{
 			isOn = true;
-			text = Preferences::Has(FIGHTER_REPAIR) ? "parallel" : "series";
+			text = Preferences::Has(FIGHTER_REPAIR) ? T("parallel") : T("series");
 		}
 		else if(setting == SHIP_OUTLINES)
 		{
 			isOn = true;
-			text = Preferences::Has(SHIP_OUTLINES) ? "fancy" : "fast";
+			text = Preferences::Has(SHIP_OUTLINES) ? T("fancy") : T("fast");
 		}
 		else if(setting == REACTIVATE_HELP)
 		{
 			// Check how many help messages have been displayed.
-			const map<string, string> &help = GameData::HelpTemplates();
+			const map<string, vector<T_>> &help = GameData::HelpTemplates();
 			int shown = 0;
 			int total = 0;
 			for(const auto &it : help)
@@ -555,7 +567,7 @@ void PreferencesPanel::DrawSettings()
 			else
 			{
 				isOn = true;
-				text = "done";
+				text = T("done");
 			}
 		}
 		else if(setting == SCROLL_SPEED)
@@ -563,12 +575,22 @@ void PreferencesPanel::DrawSettings()
 			isOn = true;
 			text = to_string(Preferences::ScrollSpeed());
 		}
+		else if(setting == LANGUAGE)
+		{
+			isOn = true;
+			text = Preferences::GetLanguageName();
+		}
+		else if(setting == FULLNAME)
+		{
+			isOn = true;
+			text = FontUtilities::Escape(T(Preferences::GetFullnameFormat(), "preferences"));
+		}
 		else
-			text = isOn ? "on" : "off";
+			text = isOn ? T("on") : T("off");
 		
 		if(setting == hoverPreference)
 			table.DrawHighlight(back);
-		table.Draw(setting, isOn ? medium : dim);
+		table.Draw(T(setting), isOn ? medium : dim);
 		table.Draw(text, isOn ? bright : medium);
 	}
 }
@@ -589,7 +611,7 @@ void PreferencesPanel::DrawPlugins()
 	int firstY = -238;
 	table.DrawAt(Point(-130, firstY));
 	table.DrawUnderline(medium);
-	table.Draw("Installed plugins:", bright);
+	table.Draw(T("Installed plugins:"), bright);
 	table.DrawGap(5);
 	
 	const Font &font = FontSet::Get(14);
@@ -613,8 +635,8 @@ void PreferencesPanel::DrawPlugins()
 				top.Y() += sprite->Height() + 10.;
 			}
 			
-			static const string EMPTY = "(No description given.)";
-			const string &text = plugin.second.empty() ? EMPTY : plugin.second;
+			static const T_ EMPTY = T_("(No description given.)");
+			const string &text = plugin.second.Str().empty() ? EMPTY.Str() : plugin.second.Str();
 			font.Draw({text, {MAX_TEXT_WIDTH, Alignment::JUSTIFIED}}, top, medium);
 		}
 	}

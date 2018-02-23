@@ -13,6 +13,8 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #ifndef SAVED_GAME_H_
 #define SAVED_GAME_H_
 
+#include "Date.h"
+
 #include <string>
 
 class Sprite;
@@ -51,7 +53,7 @@ private:
 	
 	std::string name;
 	std::string credits;
-	std::string date;
+	Date date;
 	
 	std::string system;
 	std::string planet;

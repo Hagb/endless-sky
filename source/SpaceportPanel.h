@@ -27,6 +27,9 @@ class PlayerInfo;
 class SpaceportPanel : public Panel {
 public:
 	explicit SpaceportPanel(PlayerInfo &player);
+	SpaceportPanel(const SpaceportPanel& a) = delete;
+	SpaceportPanel &operator=(const SpaceportPanel& a) = delete;
+	virtual ~SpaceportPanel();
 	
 	void UpdateNews();
 	
@@ -36,6 +39,7 @@ public:
 	
 private:
 	const News *PickNews() const;
+	void UpdateTranslation();
 	
 	
 private:
@@ -49,6 +53,7 @@ private:
 	int normalWidth;
 	Information newsInfo;
 	std::string newsMessage;
+	std::function<void()> updateCatalog;
 };
 
 

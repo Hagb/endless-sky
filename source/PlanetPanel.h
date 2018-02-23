@@ -32,6 +32,9 @@ class System;
 class PlanetPanel : public Panel {
 public:
 	PlanetPanel(PlayerInfo &player, std::function<void()> callback);
+	PlanetPanel(const PlanetPanel& a) = delete;
+	PlanetPanel &operator=(const PlanetPanel& a) = delete;
+	virtual ~PlanetPanel();
 	
 	virtual void Step() override;
 	virtual void Draw() override;
@@ -45,6 +48,7 @@ protected:
 private:
 	void TakeOffIfReady();
 	void TakeOff();
+	void UpdateTranslation();
 	
 	
 private:
@@ -63,6 +67,8 @@ private:
 	Panel *selectedPanel = nullptr;
 	
 	std::string text;
+	
+	std::function<void()> updateCatalog;
 };
 
 

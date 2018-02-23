@@ -22,7 +22,9 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/DisplayText.h"
 #include "text/Font.h"
 #include "text/FontSet.h"
+#include "text/Format.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "HiringPanel.h"
 #include "Interface.h"
 #include "MapDetailPanel.h"
@@ -38,16 +40,16 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "TradingPanel.h"
 #include "UI.h"
 
-#include <sstream>
-
 using namespace std;
+using namespace Gettext;
 
 
 
 PlanetPanel::PlanetPanel(PlayerInfo &player, function<void()> callback)
 	: player(player), callback(callback),
 	planet(*player.GetPlanet()), system(*player.GetSystem()),
-	ui(*GameData::Interfaces().Get("planet"))
+	ui(*GameData::Interfaces().Get("planet")),
+	updateCatalog([this](){ UpdateTranslation(); })
 {
 	trading.reset(new TradingPanel(player));
 	bank.reset(new BankPanel(player));
@@ -55,11 +57,19 @@ PlanetPanel::PlanetPanel(PlayerInfo &player, function<void()> callback)
 	hiring.reset(new HiringPanel(player));
 	
 	text = planet.Description();
+	AddHookUpdating(&updateCatalog);
 	
 	// Since the loading of landscape images is deferred, make sure that the
 	// landscapes for this system are loaded before showing the planet panel.
 	GameData::Preload(planet.Landscape());
 	GameData::FinishLoading();
+}
+
+
+
+PlanetPanel::~PlanetPanel()
+{
+	RemoveHookUpdating(&updateCatalog);
 }
 
 
@@ -290,50 +300,45 @@ void PlanetPanel::TakeOffIfReady()
 	
 	if(nonJumpCount > 0 || cargoToSell > 0 || overbooked > 0)
 	{
-		ostringstream out;
+		string message;
 		// Warn about missions that will fail on takeoff.
 		if(missionCargoToSell > 0 || overbooked > 0)
 		{
-			bool both = ((cargoToSell > 0 && cargo.MissionCargoSize()) && overbooked > 0);
-			out << "If you take off now you will fail a mission due to not having enough ";
-			
+			string reason;
 			if(overbooked > 0)
-			{
-				out << "bunks available for " << overbooked;
-				out << (overbooked > 1 ? " of the passengers" : " passenger");
-				out << (both ? " and not having enough " : ".");
-			}
+				reason = Format::StringF(nT("bunks available for 1 psssenger",
+					"bunks available for %1% of the passengers", overbooked),
+					to_string(overbooked));
 			
 			if(missionCargoToSell > 0)
 			{
-				out << "cargo space to hold " << missionCargoToSell;
-				out << (missionCargoToSell > 1 ? " tons" : " ton");
-				out << " of your mission cargo.";
+				if(!reason.empty())
+					reason += T(" and not having enough ");
+				reason += Format::StringF(nT("cargo space to hold 1 ton of your mission cargo",
+					"cargo space to hold %1% tons of your mission cargo", missionCargoToSell),
+					to_string(missionCargoToSell));
 			}
+			message = Format::StringF(T("If you take off now you will fail a mission due to not having enough %1%."),
+				reason);
 		}
 		// Warn about ships that won't travel with you.
 		else if(nonJumpCount > 0)
 		{
-			out << "If you take off now you will launch with ";
-			if(nonJumpCount == 1)
-				out << "a ship";
-			else
-				out << nonJumpCount << " ships";
-			out << " that will not be able to leave the system.";
+			message = Format::StringF(nT("If you take off now you will launch with a ship",
+				"If you take off now you will launch with %1% ships", nonJumpCount),
+				to_string(nonJumpCount));
+			message += T(" that will not be able to leave the system.");
 		}
 		// Warn about non-commodity cargo you will have to sell.
 		else
 		{
-			out << "If you take off now you will have to sell ";
-			
-			if(cargoToSell == 1)
-				out << "a ton of cargo";
-			else if(cargoToSell > 0)
-				out << cargoToSell << " tons of cargo";
-			out << " that you do not have space for.";
+			message = Format::StringF(nT("If you take off now you will have to sell a ton of cargo",
+					"If you take off now you will have to sell %1% tons of cargo", cargoToSell),
+					to_string(cargoToSell));
+			message += T(" that you do not have space for.");
 		}
-		out << " Are you sure you want to continue?";
-		GetUI()->Push(new Dialog(this, &PlanetPanel::TakeOff, out.str()));
+		message += T(" Are you sure you want to continue?");
+		GetUI()->Push(new Dialog(this, &PlanetPanel::TakeOff, message));
 		return;
 	}
 	
@@ -355,4 +360,11 @@ void PlanetPanel::TakeOff()
 			GetUI()->Pop(selectedPanel);
 		GetUI()->Pop(this);
 	}
+}
+
+
+
+void PlanetPanel::UpdateTranslation()
+{
+	text = planet.Description();
 }

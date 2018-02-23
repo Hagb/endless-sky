@@ -13,9 +13,11 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Galaxy.h"
 
 #include "DataNode.h"
+#include "text/Gettext.h"
 #include "SpriteSet.h"
 
 using namespace std;
+using namespace Gettext;
 
 
 
@@ -26,7 +28,7 @@ void Galaxy::Load(const DataNode &node)
 		if(child.Token(0) == "pos" && child.Size() >= 3)
 			position = Point(child.Value(1), child.Value(2));
 		else if(child.Token(0) == "sprite" && child.Size() >= 2)
-			sprite = SpriteSet::Get(child.Token(1));
+			sprite = SpriteSet::Get(T(child.Token(1), "galaxy"));
 		else
 			child.PrintTrace("Skipping unrecognized attribute:");
 	}

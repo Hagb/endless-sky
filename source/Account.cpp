@@ -15,16 +15,28 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "DataNode.h"
 #include "DataWriter.h"
 #include "text/Format.h"
+#include "text/Gettext.h"
 
 #include <algorithm>
 #include <sstream>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	// For tracking the player's average income, store daily net worth over this
 	// number of days.
 	const unsigned HISTORY = 100;
+	
+	// The format string for list of expenses.
+	Format::ListOfWords listOfExpenses;
+	
+	// The Hook of translation.
+	function<void()> updateCatalog([](){
+		listOfExpenses.SetSeparators(T(": and :, :, and ", "Expenses"));
+	});
+	// Set the hook.
+	volatile bool hooked = AddHookUpdating(&updateCatalog);
 }
 
 
@@ -153,7 +165,7 @@ string Account::Step(int64_t assets, int64_t salaries, int64_t maintenance)
 			salariesOwed -= salariesPaid;
 			credits -= salariesPaid;
 			missedPayment = true;
-			out << "You could not pay all your crew salaries.";
+			out << T("You could not pay all your crew salaries.");
 		}
 		else
 		{
@@ -195,7 +207,7 @@ string Account::Step(int64_t assets, int64_t salaries, int64_t maintenance)
 		{
 			mortgage.MissPayment();
 			if(!missedPayment)
-				out << "You missed a mortgage payment.";
+				out << T("You missed a mortgage payment.");
 			missedPayment = true;
 		}
 		else
@@ -233,51 +245,28 @@ string Account::Step(int64_t assets, int64_t salaries, int64_t maintenance)
 	if(!(salariesPaid + maintenancePaid + mortgagesPaid + finesPaid))
 		return out.str();
 	else if(missedPayment)
-		out << " ";
-	
-	out << "You paid ";
-	
-	auto creditString = [](int64_t payment) -> string
-	{
-		return payment == 1 ? "1 credit" : Format::Credits(payment) + " credits";
-	};
+		out << T(" ", "missedPayment");
 	
 	map<string, int64_t> typesPaid;
 	if(salariesPaid)
-		typesPaid["crew salaries"] = salariesPaid;
+		typesPaid[G("crew salaries", "Expenses")] = salariesPaid;
 	if(maintenancePaid)
-		typesPaid["maintenance"] = maintenancePaid;
+		typesPaid[G("maintenance", "Expenses")] = maintenancePaid;
 	if(mortgagesPaid)
-		typesPaid["mortgages"] = mortgagesPaid;
+		typesPaid[G("mortgages", "Expenses")] = mortgagesPaid;
 	if(finesPaid)
-		typesPaid["fines"] = finesPaid;
+		typesPaid[G("fines", "Expenses")] = finesPaid;
 	
-	// If you made payments of three or more types, the punctuation needs to
-	// include commas, so just handle that separately here.
-	if(typesPaid.size() >= 3)
+	auto it = typesPaid.begin();
+	auto expensesString = [&it]() -> string
 	{
-		auto it = typesPaid.begin();
-		for(unsigned int i = 0; i < typesPaid.size() - 1; ++i)
-		{
-			out << creditString(it->second) << " in " << it->first << ", ";
-			++it;
-		}
-		out << "and " << creditString(it->second) << " in " << it->first + ".";
-	}
-	else
-	{
-		if(salariesPaid)
-			out << creditString(salariesPaid) << " in crew salaries"
-				<< ((mortgagesPaid || finesPaid || maintenancePaid) ? " and " : ".");
-		if(maintenancePaid)
-			out << creditString(maintenancePaid) << "  in maintenance"
-				<< ((mortgagesPaid || finesPaid) ? " and " : ".");
-		if(mortgagesPaid)
-			out << creditString(mortgagesPaid) << " in mortgages"
-				<< (finesPaid ? " and " : ".");
-		if(finesPaid)
-			out << creditString(finesPaid) << " in fines.";
-	}
+		string r = Format::StringF(nT("%1% credit in %2%", "%1% credits in %2%", "Expenses", it->second),
+			Format::Credits(it->second), T(it->first, "Expenses"));
+		++it;
+		return r;
+	};
+	out << Format::StringF(T("You paid %1%.", "Expenses"),
+		listOfExpenses.GetList(typesPaid.size(), expensesString));
 	return out.str();
 }
 

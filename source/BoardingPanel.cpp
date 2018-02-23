@@ -22,6 +22,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/FontSet.h"
 #include "text/Format.h"
 #include "GameData.h"
+#include "text/Gettext.h"
 #include "Government.h"
 #include "Information.h"
 #include "Interface.h"
@@ -39,6 +40,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include <algorithm>
 
 using namespace std;
+using namespace Gettext;
 
 namespace {
 	// Format the given double with one decimal place.
@@ -106,7 +108,7 @@ BoardingPanel::BoardingPanel(PlayerInfo &player, const shared_ptr<Ship> &victim)
 	
 	// Some "ships" do not represent something the player could actually pilot.
 	if(!victim->IsCapturable())
-		messages.emplace_back("This is not a ship that you can capture.");
+		messages.emplace_back(T("This is not a ship that you can capture."));
 	
 	// Sort the plunder by price per ton.
 	sort(plunder.begin(), plunder.end());
@@ -147,7 +149,7 @@ void BoardingPanel::Draw()
 		// Color the item based on whether you have space for it.
 		const Color &color = item.CanTake(*you) ? isSelected ? bright : medium : dim;
 		Point pos(-320., y + fontOff);
-		font.Draw(item.Name(), pos, color);
+		font.Draw(GameData::DisplayNameOfCommodity(item.Name()), pos, color);
 		font.Draw({item.Value(), {260, Alignment::RIGHT}}, pos, color);
 		font.Draw({item.Size(), {330, Alignment::RIGHT}}, pos, color);
 	}
@@ -298,12 +300,12 @@ bool BoardingPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command,
 		{
 			victim->SelfDestruct();
 			GetUI()->Pop(this);
-			GetUI()->Push(new Dialog("The moment you blast through the airlock, a series of explosions rocks the enemy ship. They appear to have set off their self-destruct sequence..."));
+			GetUI()->Push(new Dialog(T("The moment you blast through the airlock, a series of explosions rocks the enemy ship. They appear to have set off their self-destruct sequence...")));
 			return true;
 		}
 		isCapturing = true;
-		messages.push_back("The airlock blasts open. Combat has begun!");
-		messages.push_back("(It will end if you both choose to \"defend.\")");
+		messages.push_back(T("The airlock blasts open. Combat has begun!"));
+		messages.push_back(T("(It will end if you both choose to \"defend.\")"));
 	}
 	else if((key == 'a' || key == 'd') && CanAttack())
 	{
@@ -323,15 +325,15 @@ bool BoardingPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command,
 		// If neither side attacks, combat ends.
 		if(!youAttack && !enemyAttacks)
 		{
-			messages.push_back("You retreat to your ships. Combat ends.");
+			messages.push_back(T("You retreat to your ships. Combat ends."));
 			isCapturing = false;
 		}
 		else
 		{
 			if(youAttack)
-				messages.push_back("You attack. ");
+				messages.push_back(T("You attack. "));
 			else if(enemyAttacks)
-				messages.push_back("You defend. ");
+				messages.push_back(T("You defend. "));
 			
 			// To speed things up, have multiple rounds of combat each time you
 			// click the button, if you started with a lot of crew.
@@ -364,24 +366,30 @@ bool BoardingPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command,
 			int yourCasualties = yourStartCrew - you->Crew();
 			int enemyCasualties = enemyStartCrew - victim->Crew();
 			if(yourCasualties && enemyCasualties)
-				messages.back() += "You lose " + to_string(yourCasualties)
-					+ " crew; they lose " + to_string(enemyCasualties) + ".";
+			{
+				messages.back() += Format::StringF(nT("You lose %1% crew; ", "You lose %1% crew; ", yourCasualties),
+					to_string(yourCasualties));
+				messages.back() += Format::StringF(nT("They lose %1%.", "They lose %1%.", "both", enemyCasualties),
+					to_string(enemyCasualties));
+			}
 			else if(yourCasualties)
-				messages.back() += "You lose " + to_string(yourCasualties) + " crew.";
+				messages.back() += Format::StringF(nT("You lose %1% crew.", "You lose %1% crew.", yourCasualties),
+					to_string(yourCasualties));
 			else if(enemyCasualties)
-				messages.back() += "They lose " + to_string(enemyCasualties) + " crew.";
+				messages.back() += Format::StringF(nT("They lose %1%.", "They lose %1%.", "enemy", enemyCasualties),
+					to_string(enemyCasualties));
 			
 			// Check if either ship has been captured.
 			if(!you->Crew())
 			{
-				messages.push_back("You have been killed. Your ship is lost.");
+				messages.push_back(T("You have been killed. Your ship is lost."));
 				you->WasCaptured(victim);
 				playerDied = true;
 				isCapturing = false;
 			}
 			else if(!victim->Crew())
 			{
-				messages.push_back("You have succeeded in capturing this ship.");
+				messages.push_back(T("You have succeeded in capturing this ship."));
 				victim->GetGovernment()->Offend(ShipEvent::CAPTURE, victim->RequiredCrew());
 				victim->WasCaptured(you);
 				if(!victim->JumpsRemaining() && you->CanRefuel(*victim))
