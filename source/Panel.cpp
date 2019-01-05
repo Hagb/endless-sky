@@ -127,6 +127,20 @@ bool Panel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command, bool is
 
 
 
+bool Panel::TextEditing(const char *text, Sint32 start, Sint32 length)
+{
+	return false;
+}
+
+
+
+bool Panel::TextInput(const char *text)
+{
+	return false;
+}
+
+
+
 bool Panel::Click(int x, int y, int clicks)
 {
 	return false;
@@ -168,7 +182,13 @@ bool Panel::Release(int x, int y)
 }
 
 
-	
+
+void Panel::Focus(bool thisPanel)
+{
+}
+
+
+
 void Panel::SetIsFullScreen(bool set)
 {
 	isFullScreen = set;

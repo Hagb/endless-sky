@@ -36,12 +36,16 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Sprite.h"
 #include "SpriteSet.h"
 #include "SpriteShader.h"
+#include "TextInputPanel.h"
 #include "UI.h"
+#include "text/Utf8.h"
 
 #if defined _WIN32
 #include "Files.h"
 #endif
 
+#include <algorithm>
+#include <cctype>
 #include <iterator>
 
 using namespace std;
@@ -51,10 +55,55 @@ namespace {
 #if defined _WIN32
 	size_t PATH_LENGTH;
 #endif
+	
+	// The length of the name that is not selected now.
+	size_t otherNameLength = 0;
+	
 	// Width of the conversation text.
 	const int WIDTH = 540;
 	// Margin on either side of the text.
 	const int MARGIN = 20;
+	
+	
+	// Convert a raw input text to the valid text.
+	// Remove characters that can't be used in a file name.
+	const string FORBIDDEN = "/\\?*:|\"<>~";
+	string ValidateName(const string &input)
+	{
+		size_t MAX_NAME_LENGTH = 250;
+#if defined _WIN32
+		MAX_NAME_LENGTH -= PATH_LENGTH;
+#endif
+		
+		string name;
+		name.reserve(input.length());
+		
+		// Sanity check.
+		if(MAX_NAME_LENGTH <= otherNameLength)
+			return name;
+		
+		// Both first and last names need one character at least.
+		const size_t maxLength = MAX_NAME_LENGTH - max(otherNameLength, static_cast<size_t>(1));
+		
+		// Remove the non-acceptable characters.
+		for(const char c : input)
+			if(!iscntrl(static_cast<unsigned char>(c)) && FORBIDDEN.find(c) == string::npos)
+				name += c;
+		// Truncate too long name.
+		if(name.length() > maxLength)
+		{
+			const size_t n = Utf8::CodePointStart(name, maxLength);
+			name.erase(name.begin() + n, name.end());
+		}
+		return name;
+	}
+	
+	
+	// Return true if the event have to handle this panel.
+	bool IsFallThroughEvent(SDL_Keycode key, Uint16, const Command &, bool)
+	{
+		return key == '\t' || key == SDLK_RETURN || key == SDLK_KP_ENTER;
+	}
 }
 
 
@@ -143,31 +192,37 @@ void ConversationPanel::Draw()
 		// This conversation node is prompting the player to enter their name.
 		Point fieldSize(150, 20);
 		const auto layout = Layout(fieldSize.X() - 10, Truncate::FRONT);
-		const auto escapedFirstName = DisplayText(FontUtilities::Escape(firstName), layout);
-		const auto escapedLastName = DisplayText(FontUtilities::Escape(lastName), layout);
+		
+		if(!textInputPanel)
+		{
+			textInputPanel = shared_ptr<TextInputPanel>(new TextInputPanel(font, point, layout,
+				bright, dim, ValidateName, IsFallThroughEvent));
+			GetUI()->Push(textInputPanel);
+		}
+		
 		for(int side = 0; side < 2; ++side)
 		{
-			Point center = point + Point(side ? 420 : 190, 7);
-			// Handle mouse clicks in whatever field is not selected.
+			Point center = point + Point(side ? 420 : 190, 9);
+			Point textPoint = point + Point(side ? 350 : 120, 0);
 			if(side != choice)
 			{
+				// Handle mouse clicks in whatever field is not selected.
 				AddZone(Rectangle(center, fieldSize), [this, side](){ this->ClickName(side); });
-				continue;
+				// Draw the name that is not selected.
+				string otherName = FontUtilities::Escape(side ? lastName : firstName);
+				font.Draw({otherName, layout}, textPoint, grey);
 			}
-			
-			// Fill in whichever entry box is active right now.
-			FillShader::Fill(center, fieldSize, selectionColor);
-			// Draw the text cursor.
-			const auto &name = choice ? escapedLastName : escapedFirstName;
-			center.X() += font.FormattedWidth(name) - 67;
-			FillShader::Fill(center, Point(1., 16.), dim);
+			else
+			{
+				// Fill in whichever entry box is active right now.
+				FillShader::Fill(center, fieldSize, selectionColor);
+				// Update the point of the input panel.
+				textInputPanel->SetPoint(textPoint);
+			}
 		}
 		
 		font.Draw(T("First name:"), point + Point(40, 0), dim);
-		font.Draw(escapedFirstName, point + Point(120, 0), choice ? grey : bright);
-		
 		font.Draw(T("Last name:"), point + Point(270, 0), dim);
-		font.Draw(escapedLastName, point + Point(350, 0), choice ? bright : grey);
 		
 		// Draw the OK button, and remember its location.
 		static const T_ ok = T_("[ok]");
@@ -226,31 +281,20 @@ bool ConversationPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &comm
 	{
 		// Right now we're asking the player to enter their name.
 		string &name = (choice ? lastName : firstName);
-		string &otherName = (choice ? firstName : lastName);
-		// Allow editing the text. The tab key toggles to the other entry field,
+		if(textInputPanel)
+			name = textInputPanel->GetText();
+		const string &otherName = (choice ? firstName : lastName);
+		// The tab key toggles to the other entry field,
 		// as does the return key if the other field is still empty.
-		if(key >= ' ' && key <= '~')
+		if(key == '\t' || ((key == SDLK_RETURN || key == SDLK_KP_ENTER) && otherName.empty()))
 		{
-			// Apply the shift or caps lock key.
-			char c = ((mod & KMOD_SHIFT) ? SHIFT[key] : key);
-			// Caps lock should shift letters, but not any other keys.
-			if((mod & KMOD_CAPS) && c >= 'a' && c <= 'z')
-				c += 'A' - 'a';
-			// Don't allow characters that can't be used in a file name.
-			static const string FORBIDDEN = "/\\?*:|\"<>~";
-			// Prevent the name from being so large that it cannot be saved.
-			// Most path components can be at most 255 bytes.
-			size_t MAX_NAME_LENGTH = 250;
-#if defined _WIN32
-			MAX_NAME_LENGTH -= PATH_LENGTH;
-#endif
-			if(FORBIDDEN.find(c) == string::npos && (name.size() + otherName.size()) < MAX_NAME_LENGTH)
-				name += c;
-		}
-		else if((key == SDLK_DELETE || key == SDLK_BACKSPACE) && !name.empty())
-			name.erase(name.size() - 1);
-		else if(key == '\t' || ((key == SDLK_RETURN || key == SDLK_KP_ENTER) && otherName.empty()))
+			if(textInputPanel)
+			{
+				textInputPanel->SetText(otherName);
+				otherNameLength = name.length();
+			}
 			choice = !choice;
+		}
 		else if((key == SDLK_RETURN || key == SDLK_KP_ENTER) && !firstName.empty() && !lastName.empty())
 		{
 			player.SetName(firstName, lastName);
@@ -262,6 +306,11 @@ bool ConversationPanel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &comm
 			string name = Format::StringF(T("\t\tName: %1% %2%.\n"), player.FirstName(), player.LastName());
 			text.emplace_back(name);
 			
+			if(textInputPanel)
+			{
+				GetUI()->Pop(textInputPanel.get());
+				textInputPanel.reset();
+			}
 			Goto(node + 1);
 		}
 		else
@@ -304,6 +353,19 @@ bool ConversationPanel::Drag(double dx, double dy)
 bool ConversationPanel::Scroll(double dx, double dy)
 {
 	return Drag(0., dy * Preferences::ScrollSpeed());
+}
+
+
+
+// Dim the background of this panel.
+void ConversationPanel::DrawBackdrop() const
+{
+	if(!GetUI()->IsTop(this) && !(textInputPanel && GetUI()->IsTop(textInputPanel.get())))
+		return;
+	
+	// Darken everything but the dialog.
+	const Color &back = *GameData::Colors().Get("dialog backdrop");
+	FillShader::Fill(Point(), Point(Screen::Width(), Screen::Height()), back);
 }
 
 

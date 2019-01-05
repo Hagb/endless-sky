@@ -33,6 +33,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Sprite.h"
 #include "SpriteSet.h"
 #include "SpriteShader.h"
+#include "TextInputPanel.h"
 #include "text/truncate.hpp"
 #include "UI.h"
 
@@ -68,7 +69,8 @@ namespace {
 			Point off = Point(x, y) - randomPos;
 			if(fabs(off.X()) < 40. && fabs(off.Y()) < 20.)
 			{
-				input = GameData::Phrases().Get("civilian")->Get();
+				if(textInputPanel)
+					textInputPanel->SetText(GameData::Phrases().Get("civilian")->Get());
 				return true;
 			}
 			return Dialog::Click(x, y, clicks);

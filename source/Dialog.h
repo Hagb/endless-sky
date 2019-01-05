@@ -21,11 +21,13 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "text/truncate.hpp"
 
 #include <functional>
+#include <memory>
 #include <string>
 
 class DataNode;
 class PlayerInfo;
 class System;
+class TextInputPanel;
 
 
 
@@ -41,7 +43,7 @@ public:
 	explicit Dialog(const std::string &text, Truncate truncate = Truncate::NONE);
 	// Mission accept / decline dialog.
 	Dialog(const std::string &text, PlayerInfo &player, const System *system = nullptr, Truncate truncate = Truncate::NONE);
-	virtual ~Dialog() = default;
+	virtual ~Dialog();
 	
 	// Three different kinds of dialogs can be constructed: requesting numerical
 	// input, requesting text input, or not requesting any input at all. In any
@@ -71,11 +73,16 @@ protected:
 	// button is highlighted and the enter key to select it.
 	virtual bool KeyDown(SDL_Keycode key, Uint16 mod, const Command &command, bool isNewPress) override;
 	virtual bool Click(int x, int y, int clicks) override;
+	virtual void Focus(bool thisPanel) override;
+	
+	// Dim the background of this panel.
+	void DrawBackdrop() const;
 	
 	
 private:
 	// Common code from all three constructors:
-	void Init(const std::string &message, Truncate truncate, bool canCancel = true, bool isMission = false);
+	void Init(const std::string &message, Truncate truncate, const std::string &initialText = "",
+		bool canCancel = true, bool isMission = false);
 	void DoCallback() const;
 	
 	
@@ -91,13 +98,14 @@ protected:
 	bool okIsActive;
 	bool isMission;
 	
-	std::string input;
-	
+	double topPosY;
 	Point okPos;
 	Point cancelPos;
 	
 	const System *system = nullptr;
 	PlayerInfo *player = nullptr;
+	
+	std::shared_ptr<TextInputPanel> textInputPanel;
 };
 
 
@@ -113,9 +121,9 @@ Dialog::Dialog(T *t, void (T::*fun)(int), const std::string &text, Truncate trun
 
 template <class T>
 Dialog::Dialog(T *t, void (T::*fun)(int), const std::string &text, int initialValue, Truncate truncate)
-	: intFun(std::bind(fun, t, std::placeholders::_1)), input(std::to_string(initialValue))
+	: intFun(std::bind(fun, t, std::placeholders::_1))
 {
-	Init(text, truncate);
+	Init(text, truncate, std::to_string(initialValue));
 }
 
 
@@ -123,9 +131,9 @@ Dialog::Dialog(T *t, void (T::*fun)(int), const std::string &text, int initialVa
 template <class T>
 Dialog::Dialog(T *t, void (T::*fun)(const std::string &), const std::string &text,
 	std::string initialValue, Truncate truncate)
-	: stringFun(std::bind(fun, t, std::placeholders::_1)), input(initialValue)
+	: stringFun(std::bind(fun, t, std::placeholders::_1))
 {
-	Init(text, truncate);
+	Init(text, truncate, initialValue);
 }
 
 

@@ -28,6 +28,13 @@ using namespace std;
 // of them handles it. If none do, this returns false.
 bool UI::Handle(const SDL_Event &event)
 {
+	if(!focused)
+		if(!stack.empty())
+		{
+			focused = stack.back().get();
+			focused->Focus(true);
+		}
+	
 	bool handled = false;
 	
 	vector<shared_ptr<Panel>>::iterator it = stack.end();
@@ -75,6 +82,10 @@ bool UI::Handle(const SDL_Event &event)
 			Command command(event.key.keysym.sym);
 			handled = (*it)->KeyDown(event.key.keysym.sym, event.key.keysym.mod, command, !event.key.repeat);
 		}
+		else if(event.type == SDL_TEXTEDITING)
+			handled = (*it)->TextEditing(event.edit.text, event.edit.start, event.edit.length);
+		else if(event.type == SDL_TEXTINPUT)
+			handled = (*it)->TextInput(event.text.text);
 		
 		// If this panel does not want anything below it to receive events, do
 		// not let this event trickle further down the stack.
@@ -177,6 +188,7 @@ shared_ptr<Panel> UI::Top() const
 // Delete all the panels and clear the "done" flag.
 void UI::Reset()
 {
+	Unfocus();
 	stack.clear();
 	toPush.clear();
 	toPop.clear();
@@ -254,9 +266,25 @@ Point UI::GetMouse()
 
 
 
+// Inform no events will send to this UI. The panel at the top of this UI receives an unfocus event.
+// Handle() makes this UI (and the panel at the top) regain the focus.
+void UI::Unfocus()
+{
+	if(focused)
+	{
+		focused->Focus(false);
+		focused = nullptr;
+	}
+}
+
+
+
 // If a push or pop is queued, apply it.
 void UI::PushOrPop()
 {
+	if(toPush.empty() && toPop.empty())
+		return;
+	
 	// Handle any panels that should be added.
 	for(shared_ptr<Panel> &panel : toPush)
 		if(panel)
@@ -270,9 +298,18 @@ void UI::PushOrPop()
 		for(auto it = stack.begin(); it != stack.end(); ++it)
 			if(it->get() == panel)
 			{
+				if(focused == panel)
+					Unfocus();
 				it = stack.erase(it);
 				break;
 			}
 	}
 	toPop.clear();
+	
+	if(!stack.empty() && stack.back().get() != focused)
+	{
+		Unfocus();
+		focused = stack.back().get();
+		focused->Focus(true);
+	}
 }

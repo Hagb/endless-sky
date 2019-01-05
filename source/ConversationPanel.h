@@ -31,6 +31,7 @@ class Point;
 class Ship;
 class Sprite;
 class System;
+class TextInputPanel;
 
 
 
@@ -53,6 +54,9 @@ protected:
 	virtual bool KeyDown(SDL_Keycode key, Uint16 mod, const Command &command, bool isNewPress) override;
 	virtual bool Drag(double dx, double dy) override;
 	virtual bool Scroll(double dx, double dy) override;
+	
+	// Dim the background of this panel.
+	void DrawBackdrop() const;
 	
 	
 private:
@@ -134,6 +138,8 @@ private:
 	// acts upon (e.g. the ship failing a "flight check", or the NPC you
 	// have boarded).
 	std::shared_ptr<Ship> ship;
+	
+	std::shared_ptr<TextInputPanel> textInputPanel;
 };
 
 

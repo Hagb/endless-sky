@@ -220,6 +220,7 @@ void GameLoop(PlayerInfo &player, const Conversation &conversation, const string
 				// User pressed the Menu key.
 				menuPanels.Push(shared_ptr<Panel>(
 					new MenuPanel(player, gamePanels)));
+				gamePanels.Unfocus();
 			}
 			else if(event.type == SDL_QUIT)
 			{

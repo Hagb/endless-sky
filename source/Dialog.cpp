@@ -26,10 +26,11 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "MapDetailPanel.h"
 #include "PlayerInfo.h"
 #include "Point.h"
-#include "shift.h"
+#include "Screen.h"
 #include "Sprite.h"
 #include "SpriteSet.h"
 #include "SpriteShader.h"
+#include "TextInputPanel.h"
 #include "UI.h"
 
 #include <cmath>
@@ -40,48 +41,40 @@ using namespace Gettext;
 namespace {
 	const int WIDTH = 250;
 	
-	// Map any conceivable numeric keypad keys to their ASCII values. Most of
-	// these will presumably only exist on special programming keyboards.
-	const map<SDL_Keycode, char> KEY_MAP = {
-		{SDLK_KP_0, '0'},
-		{SDLK_KP_1, '1'},
-		{SDLK_KP_2, '2'},
-		{SDLK_KP_3, '3'},
-		{SDLK_KP_4, '4'},
-		{SDLK_KP_5, '5'},
-		{SDLK_KP_6, '6'},
-		{SDLK_KP_7, '7'},
-		{SDLK_KP_8, '8'},
-		{SDLK_KP_9, '9'},
-		{SDLK_KP_AMPERSAND, '&'},
-		{SDLK_KP_AT, '@'},
-		{SDLK_KP_A, 'a'},
-		{SDLK_KP_B, 'b'},
-		{SDLK_KP_C, 'c'},
-		{SDLK_KP_D, 'd'},
-		{SDLK_KP_E, 'e'},
-		{SDLK_KP_F, 'f'},
-		{SDLK_KP_COLON, ':'},
-		{SDLK_KP_COMMA, ','},
-		{SDLK_KP_DIVIDE, '/'},
-		{SDLK_KP_EQUALS, '='},
-		{SDLK_KP_EXCLAM, '!'},
-		{SDLK_KP_GREATER, '>'},
-		{SDLK_KP_HASH, '#'},
-		{SDLK_KP_LEFTBRACE, '{'},
-		{SDLK_KP_LEFTPAREN, '('},
-		{SDLK_KP_LESS, '<'},
-		{SDLK_KP_MINUS, '-'},
-		{SDLK_KP_MULTIPLY, '*'},
-		{SDLK_KP_PERCENT, '%'},
-		{SDLK_KP_PERIOD, '.'},
-		{SDLK_KP_PLUS, '+'},
-		{SDLK_KP_POWER, '^'},
-		{SDLK_KP_RIGHTBRACE, '}'},
-		{SDLK_KP_RIGHTPAREN, ')'},
-		{SDLK_KP_SPACE, ' '},
-		{SDLK_KP_VERTICALBAR, '|'}
-	};
+	
+	// Convert a raw input text to the valid text.
+	string ValidateTextInput(const string &text)
+	{
+		return text;
+	}
+	
+	string ValidateIntInput(const string &text)
+	{
+		string out;
+		out.reserve(text.length());
+		for(auto c : text)
+		{
+			// Integer input should not allow leading zeros.
+			if(c == '0' && !out.empty())
+				out += c;
+			else if(c >= '1' && c <= '9')
+				out += c;
+		}
+		return out;
+	}
+	
+	
+	// Return true if the event have to handle this dialog.
+	bool IsFallThroughEvent(SDL_Keycode key, Uint16 mod, const Command &, bool)
+	{
+		return key == SDLK_ESCAPE
+			|| (key == 'w' && (mod & (KMOD_CTRL | KMOD_GUI)))
+			|| key == SDLK_TAB
+			|| key == SDLK_LEFT
+			|| key == SDLK_RIGHT
+			|| key == SDLK_RETURN
+			|| key == SDLK_KP_ENTER;
+	}
 }
 
 
@@ -90,7 +83,7 @@ namespace {
 // only an "ok" button, not a "cancel" button.
 Dialog::Dialog(const string &text, Truncate truncate)
 {
-	Init(text, truncate, false);
+	Init(text, truncate, "", false);
 }
 
 
@@ -100,7 +93,15 @@ Dialog::Dialog(const string &text, PlayerInfo &player, const System *system, Tru
 	: intFun(bind(&PlayerInfo::MissionCallback, &player, placeholders::_1)),
 	system(system), player(&player)
 {
-	Init(text, truncate, true, true);
+	Init(text, truncate, "", true, true);
+}
+
+
+
+Dialog::~Dialog()
+{
+	if(textInputPanel)
+		GetUI()->Pop(textInputPanel.get());
 }
 
 
@@ -116,9 +117,8 @@ void Dialog::Draw()
 	const Sprite *cancel = SpriteSet::Get("ui/dialog cancel");
 	
 	// Get the position of the top of this dialog, and of the text and input.
-	Point pos(0., (top->Height() + height * middle->Height() + bottom->Height()) * -.5f);
+	Point pos(0., topPosY);
 	Point textPos(WIDTH * -.5 + 10., pos.Y() + 20.);
-	Point inputPos = Point(0., -70.) - pos;
 	
 	// Draw the top section of the dialog box.
 	pos.Y() += top->Height() * .5;
@@ -134,15 +134,14 @@ void Dialog::Draw()
 	}
 	
 	// Draw the bottom section.
-	const Font &font = FontSet::Get(14);
 	pos.Y() += bottom->Height() * .5;
 	SpriteShader::Draw(bottom, pos);
 	pos.Y() += bottom->Height() * .5 - 25.;
 	
 	// Draw the buttons, including optionally the cancel button.
+	const Font &font = FontSet::Get(14);
 	const Color &bright = *GameData::Colors().Get("bright");
 	const Color &dim = *GameData::Colors().Get("medium");
-	const Color &back = *GameData::Colors().Get("faint");
 	if(canCancel)
 	{
 		string cancelText = isMission ? T("Decline") : T("Cancel");
@@ -166,17 +165,9 @@ void Dialog::Draw()
 	// Draw the input, if any.
 	if(!isMission && (intFun || stringFun))
 	{
+		Point inputPos = Point(0., -70. - topPosY);
+		const Color &back = *GameData::Colors().Get("faint");
 		FillShader::Fill(inputPos, Point(WIDTH - 20., 20.), back);
-		
-		Point stringPos(
-			inputPos.X() - (WIDTH - 20) * .5 + 5.,
-			inputPos.Y() - .5 * font.Height());
-		const auto layout = Layout(WIDTH - 30, Truncate::FRONT);
-		const auto displayInputText = DisplayText(FontUtilities::Escape(input), layout);
-		font.Draw(displayInputText, stringPos, bright);
-		
-		Point barPos(stringPos.X() + font.FormattedWidth(displayInputText) + 2., inputPos.Y());
-		FillShader::Fill(barPos, Point(1., 16.), dim);
 	}
 }
 
@@ -204,27 +195,8 @@ void Dialog::ParseTextNode(const DataNode &node, size_t startingIndex, std::vect
 
 bool Dialog::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command, bool isNewPress)
 {
-	auto it = KEY_MAP.find(key);
 	bool isCloseRequest = key == SDLK_ESCAPE || (key == 'w' && (mod & (KMOD_CTRL | KMOD_GUI)));
-	if((it != KEY_MAP.end() || (key >= ' ' && key <= '~')) && !isMission && (intFun || stringFun) && !isCloseRequest)
-	{
-		int ascii = (it != KEY_MAP.end()) ? it->second : key;
-		char c = ((mod & KMOD_SHIFT) ? SHIFT[ascii] : ascii);
-		// Caps lock should shift letters, but not any other keys.
-		if((mod & KMOD_CAPS) && c >= 'a' && c <= 'z')
-			c += 'A' - 'a';
-		
-		if(stringFun)
-			input += c;
-		// Integer input should not allow leading zeros.
-		else if(intFun && c == '0' && !input.empty())
-			input += c;
-		else if(intFun && c >= '1' && c <= '9')
-			input += c;
-	}
-	else if((key == SDLK_DELETE || key == SDLK_BACKSPACE) && !input.empty())
-		input.erase(input.length() - 1);
-	else if(key == SDLK_TAB && canCancel)
+	if(key == SDLK_TAB && canCancel)
 		okIsActive = !okIsActive;
 	else if(key == SDLK_LEFT)
 		okIsActive = !canCancel;
@@ -241,6 +213,11 @@ bool Dialog::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command, bool i
 		if(okIsActive || isMission)
 			DoCallback();
 		
+		if(textInputPanel)
+		{
+			GetUI()->Pop(textInputPanel.get());
+			textInputPanel.reset();
+		}
 		GetUI()->Pop(this);
 	}
 	else if((key == 'm' || command.Has(Command::MAP)) && system && player)
@@ -279,8 +256,31 @@ bool Dialog::Click(int x, int y, int clicks)
 
 
 
+void Dialog::Focus(bool thisPanel)
+{
+	// Focus(true) is never called if textInputPanel is valid and pushed.
+	if(thisPanel && textInputPanel)
+		GetUI()->Push(textInputPanel);
+}
+
+
+
+// Dim the background of this panel.
+void Dialog::DrawBackdrop() const
+{
+	if(!GetUI()->IsTop(this) && !(textInputPanel && GetUI()->IsTop(textInputPanel.get())))
+		return;
+	
+	// Darken everything but the dialog.
+	const Color &back = *GameData::Colors().Get("dialog backdrop");
+	FillShader::Fill(Point(), Point(Screen::Width(), Screen::Height()), back);
+}
+
+
+
 // Common code from all three constructors:
-void Dialog::Init(const string &message, Truncate truncate, bool canCancel, bool isMission)
+void Dialog::Init(const string &message, Truncate truncate, const string &initialText,
+	bool canCancel, bool isMission)
 {
 	this->isMission = isMission;
 	this->canCancel = canCancel;
@@ -299,6 +299,26 @@ void Dialog::Init(const string &message, Truncate truncate, bool canCancel, bool
 		height = 0;
 	else
 		height = (height - 40) / 40;
+	
+	// Get the position of the top of this dialog.
+	const Sprite *top = SpriteSet::Get("ui/dialog top");
+	const Sprite *middle = SpriteSet::Get("ui/dialog middle");
+	const Sprite *bottom = SpriteSet::Get("ui/dialog bottom");
+	topPosY = -.5f * (top->Height() + height * middle->Height() + bottom->Height());
+	
+	// This dialog has an input field.
+	if(!isMission && (intFun || stringFun))
+	{
+		Point inputPos = Point(-.5 * (WIDTH - 20) + 5., -70. - topPosY - .5 * font.Height());
+		const auto layout = Layout(WIDTH - 30, Truncate::FRONT);
+		Color textColor = *GameData::Colors().Get("bright");
+		Color cursorColor = *GameData::Colors().Get("medium");
+		auto validateFunc = intFun ? ValidateIntInput : ValidateTextInput;
+		textInputPanel = shared_ptr<TextInputPanel>(new TextInputPanel(font, inputPos, layout,
+			textColor, cursorColor, validateFunc, IsFallThroughEvent, initialText));
+		// This dialog is not set to any UI and GetUI() returns nullptr at this point,
+		// so textInputPanel will be pushed to UI when Focus(true) is called.
+	}
 }
 
 
@@ -318,7 +338,7 @@ void Dialog::DoCallback() const
 		// Only call the callback if the input can be converted to an int.
 		// Otherwise treat this as if the player clicked "cancel."
 		try {
-			intFun(stoi(input));
+			intFun(stoi(textInputPanel->GetText()));
 		}
 		catch(...)
 		{
@@ -326,7 +346,7 @@ void Dialog::DoCallback() const
 	}
 	
 	if(stringFun)
-		stringFun(input);
+		stringFun(textInputPanel->GetText());
 	
 	if(voidFun)
 		voidFun();

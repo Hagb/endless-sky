@@ -68,6 +68,8 @@ public:
 protected:
 	// Only override the ones you need; the default action is to return false.
 	virtual bool KeyDown(SDL_Keycode key, Uint16 mod, const Command &command, bool isNewPress);
+	virtual bool TextEditing(const char *text, Sint32 start, Sint32 length);
+	virtual bool TextInput(const char *text);
 	virtual bool Click(int x, int y, int clicks);
 	virtual bool RClick(int x, int y);
 	virtual bool Hover(int x, int y);
@@ -77,6 +79,9 @@ protected:
 	// If a clickable zone is clicked while editing is happening, the panel may
 	// need to know to exit editing mode before handling the click.
 	virtual void EndEditing() {}
+	// Call back when this panel gets/loses the focus.
+	// The focused Panel is the first receiver of any events and considered as the input mode controller.
+	virtual void Focus(bool thisPanel);
 	
 	void SetIsFullScreen(bool set);
 	void SetTrapAllEvents(bool set);

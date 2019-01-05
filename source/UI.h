@@ -72,6 +72,10 @@ public:
 	// Get the current mouse position.
 	static Point GetMouse();
 	
+	// Inform no events will send to this UI. The panel at the top of this UI receives an unfocus event.
+	// Handle() makes this UI (and the panel at the top) regain the focus.
+	void Unfocus();
+	
 	
 private:
 	// If a push or pop is queued, apply it.
@@ -83,6 +87,8 @@ private:
 	bool canSave = false;
 	// Whether the player has requested the game to shut down.
 	bool isDone = false;
+	// The Panel that is the first receiver of any events and considered as the input mode controller.
+	Panel* focused = nullptr;
 	
 	std::vector<std::shared_ptr<Panel>> stack;
 	std::vector<std::shared_ptr<Panel>> toPush;
