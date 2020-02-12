@@ -29,7 +29,7 @@ install:
       if (!(Test-Path 'C:\dev64')) { New-Item 'C:\dev64' -ItemType Directory; }
       if (!(Test-Path 'C:\dev64\bin'))
       {
-        Start-FileDownload 'http://endless-sky.github.io/win64-dev.zip' 'C:\dev64.zip'
+        Start-FileDownload 'https://www.dropbox.com/s/53qt67fnub7e2rt/win64-dev.zip?dl=1' 'C:\dev64.zip'
         $zipArgs = 'x C:\dev64.zip -oC:\';
         Start-Process '7z.exe' -ArgumentList $zipArgs -Wait;
       }
